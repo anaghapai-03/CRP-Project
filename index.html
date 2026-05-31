@@ -1,0 +1,1552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SecureSign — Digital Signature System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #f8f9fb;
+    --bg2: #ffffff;
+    --bg3: #f0f2f7;
+    --border: rgba(120,120,200,0.1);
+    --border2: rgba(120,120,200,0.2);
+    --purple: #6366f1;
+    --purple2: #4f46e5;
+    --teal: #06b6d4;
+    --red: #ef4444;
+    --text: #1e293b;
+    --text2: #64748b;
+    --text3: #94a3b8;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* HEADER */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.25rem 2rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  }
+  .logo {
+    font-family: var(--sans);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--purple);
+    display: flex;
+    gap: 3px;
+  }
+  .logo span { color: var(--teal); }
+  .status-dot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text2);
+    font-family: var(--mono);
+  }
+  .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--text3);
+  }
+  .dot.active { background: var(--teal); box-shadow: 0 0 8px var(--teal); }
+
+  /* LAYOUT */
+  .app {
+    display: flex;
+    flex: 1;
+  }
+  nav {
+    width: 200px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    padding: 1.5rem 0;
+    background: var(--bg);
+  }
+  .nav-section {
+    font-size: 10px;
+    font-family: var(--mono);
+    letter-spacing: 0.12em;
+    color: var(--text3);
+    padding: 0 1.25rem 0.5rem;
+    text-transform: uppercase;
+  }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 1.25rem;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text2);
+    transition: all 0.15s;
+    border-left: 2px solid transparent;
+  }
+  .nav-item svg { width: 15px; height: 15px; flex-shrink: 0; }
+  .nav-item:hover { color: var(--text); background: var(--bg3); }
+  .nav-item.active {
+    color: var(--purple);
+    border-left-color: var(--purple);
+    background: rgba(123,111,255,0.07);
+  }
+  .nav-divider { height: 1px; background: var(--border); margin: 1rem 0; }
+  .nav-footer {
+    padding: 1rem 1.25rem 0;
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--text3);
+    line-height: 1.7;
+  }
+  .nav-footer .key-count {
+    color: var(--teal);
+    font-weight: 700;
+  }
+
+  /* MAIN */
+  main {
+    flex: 1;
+    padding: 2rem;
+    overflow-y: auto;
+    max-width: 860px;
+  }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  .page-header { margin-bottom: 2rem; }
+  .page-header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    letter-spacing: -0.02em;
+  }
+  .page-header p {
+    font-size: 13px;
+    color: var(--text2);
+    font-family: var(--mono);
+  }
+
+  /* CARDS */
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    transition: all 0.2s ease;
+  }
+  .card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    border-color: var(--border2);
+  }
+  .card-label {
+    font-size: 11px;
+    font-family: var(--mono);
+    letter-spacing: 0.1em;
+    color: var(--text3);
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* FORM ELEMENTS */
+  label {
+    display: block;
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--text2);
+    margin-bottom: 6px;
+    margin-top: 14px;
+    letter-spacing: 0.05em;
+  }
+  label:first-child { margin-top: 0; }
+  input[type=text], textarea, select {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 9px 12px;
+    font-size: 13px;
+    color: var(--text);
+    font-family: var(--mono);
+    transition: border-color 0.15s;
+    outline: none;
+  }
+  input[type=text]:focus, textarea:focus, select:focus {
+    border-color: var(--purple);
+  }
+  textarea { resize: vertical; line-height: 1.6; }
+  select { cursor: pointer; }
+  select option { background: var(--bg3); }
+
+  /* BUTTONS */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    font-size: 13px;
+    font-family: var(--sans);
+    font-weight: 500;
+    letter-spacing: 0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--text);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  }
+  .btn:hover { 
+    background: var(--bg3); 
+    border-color: var(--purple); 
+    color: var(--purple);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    transform: translateY(-1px);
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-primary { background: var(--purple); border-color: var(--purple); color: #fff; box-shadow: 0 2px 6px rgba(99,102,241,0.25); }
+  .btn-primary:hover { background: var(--purple2); border-color: var(--purple2); color: #fff; box-shadow: 0 4px 12px rgba(99,102,241,0.3); }
+  .btn-teal { background: transparent; border-color: var(--teal); color: var(--teal); }
+  .btn-teal:hover { background: rgba(6,182,212,0.08); color: var(--teal); box-shadow: 0 2px 4px rgba(6,182,212,0.15); }
+  .btn-danger { background: transparent; border-color: var(--red); color: var(--red); }
+  .btn-danger:hover { background: rgba(239,68,68,0.08); color: var(--red); box-shadow: 0 2px 4px rgba(239,68,68,0.15); }
+  .btn-row { display: flex; gap: 8px; margin-top: 1rem; flex-wrap: wrap; align-items: center; }
+
+  /* STATUS BARS */
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: var(--mono);
+    margin-top: 1rem;
+  }
+  .status-ok { background: rgba(0,212,170,0.08); border: 1px solid rgba(0,212,170,0.25); color: var(--teal); }
+  .status-err { background: rgba(255,77,109,0.08); border: 1px solid rgba(255,77,109,0.25); color: var(--red); }
+  .status-info { background: rgba(123,111,255,0.08); border: 1px solid rgba(123,111,255,0.25); color: var(--purple); }
+  .status-warn { background: rgba(255,180,50,0.08); border: 1px solid rgba(255,180,50,0.25); color: #FFB432; }
+
+  /* MONO BLOCKS */
+  .mono-block {
+    font-family: var(--mono);
+    font-size: 10px;
+    line-height: 1.7;
+    word-break: break-all;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    color: var(--text2);
+    max-height: 90px;
+    overflow-y: auto;
+  }
+
+  /* KEY DISPLAY GRID */
+  .key-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  .key-pane {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+  }
+  .key-pane-label {
+    font-size: 10px;
+    font-family: var(--mono);
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+  .key-pane-label.private { color: var(--red); }
+  .key-pane-label.public { color: var(--teal); }
+  .key-pane .mono-block { max-height: 100px; }
+
+  /* HASH VISUALISER */
+  .hash-vis {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    margin-top: 10px;
+  }
+  .hash-byte {
+    width: 13px; height: 13px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  /* SIGNER LIST */
+  .signer-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 8px;
+  }
+  .signer-left { display: flex; align-items: center; gap: 12px; }
+  .avatar {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: rgba(123,111,255,0.15);
+    border: 1px solid rgba(123,111,255,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--purple);
+  }
+  .signer-name { font-size: 13px; font-weight: 600; }
+  .signer-time { font-size: 11px; font-family: var(--mono); color: var(--text3); margin-top: 1px; }
+
+  /* BADGES */
+  .badge {
+    font-size: 10px;
+    font-family: var(--mono);
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.05em;
+  }
+  .badge-ok { background: rgba(0,212,170,0.12); color: var(--teal); border: 1px solid rgba(0,212,170,0.25); }
+  .badge-err { background: rgba(255,77,109,0.12); color: var(--red); border: 1px solid rgba(255,77,109,0.25); }
+  .badge-info { background: rgba(123,111,255,0.12); color: var(--purple); border: 1px solid rgba(123,111,255,0.25); }
+
+  /* INFO TABLE */
+  .info-table { width: 100%; }
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .info-row:last-child { border-bottom: none; }
+  .info-key { color: var(--text2); font-family: var(--mono); }
+  .info-val { color: var(--text); font-family: var(--mono); font-size: 11px; }
+
+  /* STEPS */
+  .steps { display: flex; flex-direction: column; gap: 1rem; }
+  .step { display: flex; gap: 14px; }
+  .step-num {
+    flex-shrink: 0;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: rgba(123,111,255,0.15);
+    border: 1px solid rgba(123,111,255,0.3);
+    color: var(--purple);
+    font-size: 11px;
+    font-weight: 700;
+    font-family: var(--mono);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .step-head { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+  .step-desc { font-size: 12px; color: var(--text2); font-family: var(--mono); line-height: 1.6; }
+  .step-code {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--teal);
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 6px 10px;
+    margin-top: 6px;
+    word-break: break-all;
+  }
+
+  /* TABS */
+  .tab-bar {
+    display: flex;
+    gap: 0;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .tab {
+    padding: 8px 16px;
+    font-size: 12px;
+    font-family: var(--mono);
+    cursor: pointer;
+    color: var(--text2);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: all 0.15s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--purple); border-bottom-color: var(--purple); }
+
+  /* HASH GRID */
+  .hash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
+  .hash-cell {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+  }
+  .hash-cell-label { font-size: 10px; font-family: var(--mono); color: var(--text3); margin-bottom: 6px; letter-spacing: 0.08em; text-transform: uppercase; }
+
+  /* SPIN */
+  .spin { animation: spin 1s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* VERIFICATION BIG RESULT */
+  .verify-big {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 1.5rem;
+    border-radius: 10px;
+    margin-bottom: 1rem;
+  }
+  .verify-big.ok { background: rgba(0,212,170,0.06); border: 1px solid rgba(0,212,170,0.2); }
+  .verify-big.err { background: rgba(255,77,109,0.06); border: 1px solid rgba(255,77,109,0.2); }
+  .verify-icon { font-size: 36px; }
+  .verify-title { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
+  .verify-subtitle { font-size: 12px; font-family: var(--mono); }
+  .verify-big.ok .verify-title { color: var(--teal); }
+  .verify-big.ok .verify-subtitle { color: rgba(0,212,170,0.6); }
+  .verify-big.err .verify-title { color: var(--red); }
+  .verify-big.err .verify-subtitle { color: rgba(255,77,109,0.6); }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  /* FILE INPUT */
+  input[type=file] {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text2);
+    cursor: pointer;
+  }
+  input[type=file]::file-selector-button {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    color: var(--text);
+    padding: 6px 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    cursor: pointer;
+    margin-right: 10px;
+  }
+
+  /* DIVIDER */
+  .divider { height: 1px; background: var(--border); margin: 1rem 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">SECURE<span>SIGN</span></div>
+  <div class="status-dot">
+    <div class="dot active" id="header-dot"></div>
+    <span id="header-status">Secure signatures</span>
+  </div>
+</header>
+
+<div class="app">
+  <!-- SIDEBAR NAV -->
+  <nav>
+    <div class="nav-section">Crypto</div>
+    <div class="nav-item active" onclick="nav('keygen')" id="nav-keygen">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+      Key Generation
+    </div>
+    <div class="nav-item" onclick="nav('sign')" id="nav-sign">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      Sign Document
+    </div>
+    <div class="nav-item" onclick="nav('verify')" id="nav-verify">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0 1 12 2.944a11.955 11.955 0 0 1-8.618 3.04A12.02 12.02 0 0 0 3 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+      Verify Signature
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-section">Advanced</div>
+    <div class="nav-item" onclick="nav('multisign')" id="nav-multisign">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Multi-Sign Contract
+    </div>
+    <div class="nav-item" onclick="nav('aes')" id="nav-aes">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      AES-256 Encrypt
+    </div>
+    <div class="nav-item" onclick="nav('learn')" id="nav-learn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      Cryptography 101
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-footer">
+      Keys loaded: <span class="key-count" id="key-count">0</span><br/>
+    </div>
+  </nav>
+
+  <main>
+
+    <!-- ══ PAGE: KEY GENERATION ══ -->
+    <div class="page active" id="page-keygen">
+      <div class="page-header">
+        <h1>Key Generation</h1>
+        <p>Create your signing keys here</p>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Identity</div>
+        <label>Your name</label>
+        <input type="text" id="user-name" placeholder="Alice, Bob..." value="Alice" />
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="generateKeys()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            Generate RSA-2048 Key Pair
+          </button>
+        </div>
+        <div id="keygen-status"></div>
+      </div>
+
+      <div id="key-display-card" style="display:none">
+        <div class="card">
+          <div class="card-label">Your Key Pair</div>
+          <div class="key-grid">
+            <div class="key-pane">
+              <div class="key-pane-label private">🔴 Private Key — keep secret</div>
+              <div class="mono-block" id="priv-display">—</div>
+              <div class="btn-row">
+                <button class="btn" onclick="copyText('priv-display')" style="font-size:10px;padding:5px 10px">Copy PEM</button>
+              </div>
+            </div>
+            <div class="key-pane">
+              <div class="key-pane-label public">🟢 Public Key — share freely</div>
+              <div class="mono-block" id="pub-display">—</div>
+              <div class="btn-row">
+                <button class="btn" onclick="copyText('pub-display')" style="font-size:10px;padding:5px 10px">Copy PEM</button>
+              </div>
+            </div>
+          </div>
+          <div class="divider"></div>
+          <div style="font-size:11px;color:var(--text3);font-family:var(--mono)">
+            Size: 2048-bit &nbsp;·&nbsp; Algorithm: RSA-PSS &nbsp;·&nbsp; Hash: SHA-256 &nbsp;·&nbsp; Exponent: 65537
+          </div>
+        </div>
+      </div>
+
+      <div id="keystore-wrapper" style="display:none">
+        <div class="card">
+          <div class="card-label">Key Store (session)</div>
+          <div id="keystore-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ PAGE: SIGN ══ -->
+    <div class="page" id="page-sign">
+      <div class="page-header">
+        <h1>Sign Document</h1>
+        <p>Sign documents with your private key</p>
+      </div>
+
+      <div class="tab-bar">
+        <div class="tab active" id="tab-text-btn" onclick="switchTab('stab-text','sign-tabs','tab-text-btn,tab-file-btn')">Text</div>
+        <div class="tab" id="tab-file-btn" onclick="switchTab('stab-file','sign-tabs','tab-text-btn,tab-file-btn')">File Upload</div>
+      </div>
+
+      <div id="sign-tabs">
+        <div id="stab-text">
+          <div class="card">
+            <div class="card-label">Document</div>
+            <textarea id="sign-doc" rows="5" placeholder="Enter text to sign..."></textarea>
+          </div>
+        </div>
+        <div id="stab-file" style="display:none">
+          <div class="card">
+            <div class="card-label">Upload File</div>
+            <input type="file" id="file-input" onchange="loadFile()" />
+            <div id="file-info" style="margin-top:8px;font-size:11px;color:var(--text2);font-family:var(--mono)"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Signer</div>
+        <div id="no-keys-warn" class="status status-warn">
+          ⚠ No keys yet — go to Key Generation first.
+        </div>
+        <div id="key-selector" style="display:none">
+          <label>Select signing key</label>
+          <select id="key-picker"></select>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="sign-btn" onclick="signDocument()" disabled>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            Sign Document
+          </button>
+        </div>
+        <div id="sign-status"></div>
+      </div>
+
+      <div id="sig-output" style="display:none">
+        <div class="card">
+          <div class="card-label">Signature Output</div>
+          <div class="hash-grid">
+            <div class="hash-cell">
+              <div class="hash-cell-label">Fingerprint</div>
+              <div class="mono-block" id="out-hash" style="max-height:60px">—</div>
+            </div>
+            <div class="hash-cell">
+              <div class="hash-cell-label">Signature</div>
+              <div class="mono-block" id="out-sig" style="max-height:60px">—</div>
+            </div>
+          </div>
+          <div style="margin-top:14px">
+            <div style="font-size:10px;font-family:var(--mono);color:var(--text3);margin-bottom:6px;letter-spacing:0.08em;text-transform:uppercase">Visual representation</div>
+            <div class="hash-vis" id="hash-color-vis"></div>
+          </div>
+          <div class="divider"></div>
+          <div class="btn-row">
+            <button class="btn btn-teal" onclick="exportBundle()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              Download
+            </button>
+            <button class="btn" onclick="copyBundle()">Copy</button>
+          </div>
+        </div>
+
+        <!-- OPTIONAL: AES ENCRYPT THE SIGNED BUNDLE -->
+        <div class="card">
+          <div class="card-label">Optional: Encrypt with AES-256-GCM</div>
+          <p style="font-size:12px;color:var(--text2);margin-bottom:12px">
+            Add encryption on top of the signature. The recipient needs the password to decrypt, but can still verify your signature.
+          </p>
+          <label>Password (share with recipient separately)</label>
+          <input type="text" id="sign-aes-pass" placeholder="Enter password to encrypt..." />
+          <div class="btn-row" style="margin-top:10px">
+            <button class="btn btn-primary" onclick="encryptSignedBundle()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              Encrypt This Signature
+            </button>
+          </div>
+          <div id="sign-aes-status"></div>
+
+          <div id="sign-aes-output" style="display:none;margin-top:1rem">
+            <div style="margin-top:12px">
+              <div class="hash-cell-label">Encrypted bundle (share this instead)</div>
+              <div class="mono-block" id="sign-aes-bundle" style="max-height:100px">—</div>
+              <div class="btn-row" style="margin-top:8px">
+                <button class="btn btn-teal" onclick="copyEncryptedSignature()">Copy encrypted</button>
+                <button class="btn" onclick="downloadEncryptedSignature()">Download</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ PAGE: VERIFY ══ -->
+    <div class="page" id="page-verify">
+      <div class="page-header">
+        <h1>Verify Signature</h1>
+        <p>Verify that signatures are authentic</p>
+      </div>
+
+      <div class="tab-bar">
+        <div class="tab active" id="vtab-bundle-btn" onclick="switchTab('vtab-bundle','vtabs','vtab-bundle-btn,vtab-manual-btn')">Paste Bundle</div>
+        <div class="tab" id="vtab-manual-btn" onclick="switchTab('vtab-manual','vtabs','vtab-bundle-btn,vtab-manual-btn')">Manual Entry</div>
+      </div>
+
+      <div id="vtabs">
+        <div id="vtab-bundle">
+          <div class="card">
+            <div class="card-label">Paste Signed Document</div>
+            <textarea id="verify-bundle" rows="7" placeholder='{"document":"...","signature":"...","publicKey":"...","signer":"...","timestamp":"..."}'></textarea>
+            <div class="btn-row">
+              <button class="btn btn-primary" onclick="verifyBundle()">Verify</button>
+            </div>
+          </div>
+        </div>
+        <div id="vtab-manual" style="display:none">
+          <div class="card">
+            <div class="card-label">Manual Verification</div>
+            <label>Document text (exact)</label>
+            <textarea id="v-doc" rows="3"></textarea>
+            <label>Signature (hex string)</label>
+            <textarea id="v-sig" rows="2"></textarea>
+            <label>Public Key (PEM)</label>
+            <textarea id="v-pub" rows="4" placeholder="-----BEGIN PUBLIC KEY-----&#10;...&#10;-----END PUBLIC KEY-----"></textarea>
+            <div class="btn-row">
+              <button class="btn btn-primary" onclick="verifyManual()">Verify</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="verify-result" style="display:none">
+        <div id="verify-result-inner"></div>
+      </div>
+
+      <!-- TAMPER TEST -->
+      <div class="card">
+        <div class="card-label">Tamper Test Lab</div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:12px">
+          Try changing a signed document and verify it — the signature will fail.
+        </p>
+        <div class="btn-row">
+          <button class="btn" onclick="loadTamperDoc()">Load last signed</button>
+          <button class="btn btn-danger" id="tamper-btn" onclick="tamperDoc()" disabled>Tamper document</button>
+          <button class="btn btn-primary" id="tamper-verify-btn" onclick="verifyTampered()" disabled>Verify tampered</button>
+        </div>
+        <div id="tamper-preview" style="margin-top:10px"></div>
+        <div id="tamper-status"></div>
+      </div>
+    </div>
+
+    <!-- ══ PAGE: MULTI-SIGN ══ -->
+    <div class="page" id="page-multisign">
+      <div class="page-header">
+        <h1>Multi-Party Contract Signing</h1>
+        <p>Get multiple people to sign the same contract</p>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Contract Document</div>
+        <textarea id="multi-doc" rows="4">This Agreement is between Alice and Bob.
+
+Alice agrees to deliver the software project by June 30, 2026.
+Bob agrees to pay ₹1,00,000 upon successful delivery.</textarea>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Signatures</div>
+        <div id="multi-signer-list"></div>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="addMultiSign()">+ Add my signature</button>
+          <button class="btn btn-teal" onclick="verifyAllMulti()">Verify all signatures</button>
+          <button class="btn" onclick="resetMulti()">Reset</button>
+        </div>
+        <div id="multi-status"></div>
+      </div>
+    </div>
+
+    <!-- ══ PAGE: AES-256-GCM ENCRYPTION ══ -->
+    <div class="page" id="page-aes">
+      <div class="page-header">
+        <h1>AES-256-GCM Encryption</h1>
+        <p>Symmetric encryption — same key encrypts and decrypts</p>
+      </div>
+
+      <div class="card" style="border-color:rgba(6,182,212,0.3);background:rgba(6,182,212,0.04)">
+        <div class="card-label" style="color:var(--teal)">RSA vs AES — what's the difference?</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;font-size:12px;font-family:var(--mono)">
+          <div>
+            <div style="color:var(--purple);font-weight:700;margin-bottom:6px">RSA (signatures above)</div>
+            <div style="color:var(--text2);line-height:1.8">
+              • Two different keys<br/>
+              • Private signs / Public verifies<br/>
+              • Proves who sent it<br/>
+              • Slower for large data
+            </div>
+          </div>
+          <div>
+            <div style="color:var(--teal);font-weight:700;margin-bottom:6px">AES-256-GCM (this page)</div>
+            <div style="color:var(--text2);line-height:1.8">
+              • One shared secret key<br/>
+              • Same key encrypts AND decrypts<br/>
+              • Hides content from others<br/>
+              • Fast for any size data
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-bar">
+        <div class="tab active" id="aes-enc-btn" onclick="switchTab('aes-enc','aes-tabs','aes-enc-btn,aes-dec-btn')">Encrypt</div>
+        <div class="tab" id="aes-dec-btn" onclick="switchTab('aes-dec','aes-tabs','aes-enc-btn,aes-dec-btn')">Decrypt</div>
+      </div>
+
+      <div id="aes-tabs">
+
+        <!-- ENCRYPT -->
+        <div id="aes-enc">
+          <div class="card">
+            <div class="card-label">Step 1 — Password</div>
+            <p style="font-size:12px;color:var(--text2);font-family:var(--mono);margin-bottom:12px">
+              Enter a password. We derive a 256-bit key using PBKDF2-SHA256 (100,000 iterations for security).
+            </p>
+            <label>Password (you'll need this to decrypt)</label>
+            <input type="text" id="aes-enc-pass" placeholder="Enter a strong password..." />
+          </div>
+
+          <div class="card">
+            <div class="card-label">Step 2 — Message</div>
+            <label>Text to encrypt</label>
+            <textarea id="aes-plaintext" rows="4" placeholder="Enter your secret message..."></textarea>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Step 3 — Encrypt</div>
+            <div class="btn-row">
+              <button class="btn btn-primary" onclick="aesEncrypt()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                Encrypt with AES-256-GCM
+              </button>
+            </div>
+            <div id="aes-enc-status"></div>
+          </div>
+
+          <div id="aes-enc-output" style="display:none">
+            <div class="card">
+              <div class="card-label">Encrypted Output</div>
+              <div class="hash-grid">
+                <div class="hash-cell">
+                  <div class="hash-cell-label">IV (random nonce)</div>
+                  <div class="mono-block" id="aes-out-iv" style="max-height:50px;color:var(--teal)">—</div>
+                </div>
+                <div class="hash-cell">
+                  <div class="hash-cell-label">Ciphertext</div>
+                  <div class="mono-block" id="aes-out-cipher" style="max-height:50px;color:var(--red)">—</div>
+                </div>
+              </div>
+              <div class="divider"></div>
+              <div class="hash-cell-label" style="margin-bottom:6px">Full encrypted bundle (copy to decrypt)</div>
+              <div class="mono-block" id="aes-bundle-out" style="max-height:100px">—</div>
+              <div class="btn-row">
+                <button class="btn btn-teal" onclick="copyAesBundle()">Copy bundle</button>
+                <button class="btn" onclick="autoFillDecrypt()">→ Go to Decrypt</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- DECRYPT -->
+        <div id="aes-dec" style="display:none">
+          <div class="card">
+            <div class="card-label">Decrypt a message</div>
+            <label>Password</label>
+            <input type="text" id="aes-dec-pass" placeholder="Enter the password..." />
+            <label>Encrypted bundle (JSON)</label>
+            <textarea id="aes-dec-bundle" rows="5" placeholder='{"iv":"...","salt":"...","ciphertext":"..."}'></textarea>
+            <div class="btn-row">
+              <button class="btn btn-primary" onclick="aesDecrypt()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                Decrypt
+              </button>
+            </div>
+            <div id="aes-dec-status"></div>
+          </div>
+
+          <div id="aes-dec-output" style="display:none">
+            <div class="card" style="border-color:rgba(6,182,212,0.3)">
+              <div class="card-label">Decrypted Message</div>
+              <div class="mono-block" id="aes-plaintext-out" style="color:var(--teal);max-height:none">—</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ══ PAGE: LEARN ══ -->
+    <div class="page" id="page-learn">
+      <div class="page-header">
+        <h1>Cryptography 101</h1>
+        <p>Learn how cryptography works</p>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Step 1 — RSA Key Generation</div>
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div>
+              <div class="step-head">Pick two large random prime numbers</div>
+              <div class="step-desc">These are the secret foundation of your key pair. Their product creates the encryption strength.</div>
+              <div class="step-code">n = p × q &nbsp;·&nbsp; e.g. n ≈ 2^2048 (617 digits)</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div>
+              <div class="step-head">Compute Euler's totient</div>
+              <div class="step-desc">A mathematical number derived from the primes, kept secret.</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div>
+              <div class="step-head">Create your public key</div>
+              <div class="step-desc">This is what you share with the world so others can verify your signatures.</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">4</div>
+            <div>
+              <div class="step-head">Create your private key</div>
+              <div class="step-desc">This is your secret. Keep it safe — only you can sign with it.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Step 2 — Signing</div>
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div>
+              <div class="step-head">Hash your document</div>
+              <div class="step-desc">Creates a unique fingerprint. Even one character change gives a completely different hash.</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div>
+              <div class="step-head">Add randomness to the hash</div>
+              <div class="step-desc">This makes each signature unique, even for the same document signed twice.</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div>
+              <div class="step-head">Encrypt with your private key</div>
+              <div class="step-desc">This creates the signature. Only your private key can do this — it's your proof.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Step 3 — Verification</div>
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div>
+              <div class="step-head">Decrypt the signature with the public key</div>
+              <div class="step-desc">Anyone with the public key can do this. It reveals the hash.</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div>
+              <div class="step-head">Hash the document independently</div>
+              <div class="step-desc">Verifier computes SHA-256 of the document they received.</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div>
+              <div class="step-head">If hash' == hash → VALID. Otherwise → TAMPERED.</div>
+              <div class="step-desc">Any change to the document changes its hash, breaking the equality. Mathematically unforgeable.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Live SHA-256 Demo</div>
+        <label>Type to see the hash change</label>
+        <textarea id="live-input" rows="2" oninput="updateLiveHash()" placeholder="Type here...">Hello World</textarea>
+        <div style="margin-top:12px">
+          <div style="font-size:10px;font-family:var(--mono);color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px">Hash output</div>
+          <div class="mono-block" id="live-hash-out" style="max-height:none;color:var(--teal)">—</div>
+          <div class="hash-vis" id="live-hash-vis" style="margin-top:10px"></div>
+          <div style="font-size:10px;font-family:var(--mono);color:var(--text3);margin-top:6px">Visual representation of the hash (32 bytes)</div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════
+const S = { keys: [], lastBundle: null, multiSigs: [], tamperBundle: null, fileContent: null, aesBundle: null, comboBundle: null, encryptedSignature: null };
+
+// ═══════════════════════════════════════════════
+//  CRYPTO UTILITIES — raw Web Crypto API only
+// ═══════════════════════════════════════════════
+
+function bytesToHex(buf) {
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+function hexToBytes(hex) {
+  const arr = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) arr[i/2] = parseInt(hex.substr(i,2),16);
+  return arr;
+}
+
+function ab2b64(buf) {
+  let s = '';
+  new Uint8Array(buf).forEach(b => s += String.fromCharCode(b));
+  return btoa(s);
+}
+
+function b642ab(b64) {
+  const s = atob(b64);
+  const buf = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) buf[i] = s.charCodeAt(i);
+  return buf.buffer;
+}
+
+async function sha256hex(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return bytesToHex(buf);
+}
+
+async function importPublicKey(pem) {
+  const b64 = pem.replace(/-----[^-]+-----/g,'').replace(/\s/g,'');
+  return await crypto.subtle.importKey(
+    'spki', b642ab(b64),
+    { name: 'RSA-PSS', hash: 'SHA-256' },
+    false, ['verify']
+  );
+}
+
+// ═══════════════════════════════════════════════
+//  AES-256-GCM ENCRYPTION
+// ═══════════════════════════════════════════════
+
+async function deriveAesKey(password, salt) {
+  const key = await crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt: salt,
+      iterations: 100000,
+      hash: 'SHA-256'
+    },
+    await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']),
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+  return key;
+}
+
+async function aesEncrypt() {
+  const password = document.getElementById('aes-enc-pass').value;
+  const plaintext = document.getElementById('aes-plaintext').value;
+  const st = document.getElementById('aes-enc-status');
+  
+  if (!password || !plaintext) {
+    st.innerHTML = '<div class="status status-error">Enter password and message</div>';
+    return;
+  }
+  
+  st.innerHTML = '<div class="status status-info"><span class="spin">⟳</span> Encrypting…</div>';
+  await sleep(50);
+  
+  try {
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const key = await deriveAesKey(password, salt);
+    
+    const cipherdata = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv: iv },
+      key,
+      new TextEncoder().encode(plaintext)
+    );
+    
+    const cipherArray = new Uint8Array(cipherdata);
+    const authTag = cipherArray.slice(-16);
+    const cipher = cipherArray.slice(0, -16);
+    
+    S.aesBundle = {
+      salt: bytesToHex(salt),
+      iv: bytesToHex(iv),
+      ciphertext: bytesToHex(cipher),
+      authTag: bytesToHex(authTag)
+    };
+    
+    document.getElementById('aes-out-iv').textContent = bytesToHex(iv);
+    document.getElementById('aes-out-cipher').textContent = bytesToHex(cipher);
+    document.getElementById('aes-bundle-out').textContent = JSON.stringify(S.aesBundle, null, 2);
+    document.getElementById('aes-enc-output').style.display = 'block';
+    
+    st.innerHTML = '<div class="status status-ok">Encrypted with AES-256-GCM</div>';
+  } catch (e) {
+    st.innerHTML = '<div class="status status-error">Encryption failed: ' + e.message + '</div>';
+  }
+}
+
+async function aesDecrypt() {
+  const password = document.getElementById('aes-dec-pass').value;
+  const bundleText = document.getElementById('aes-dec-bundle').value;
+  const st = document.getElementById('aes-dec-status');
+  
+  if (!password || !bundleText) {
+    st.innerHTML = '<div class="status status-error">Enter password and bundle</div>';
+    return;
+  }
+  
+  st.innerHTML = '<div class="status status-info"><span class="spin">⟳</span> Decrypting…</div>';
+  await sleep(50);
+  
+  try {
+    const bundle = JSON.parse(bundleText);
+    const salt = hexToBytes(bundle.salt);
+    const iv = hexToBytes(bundle.iv);
+    const ciphertext = hexToBytes(bundle.ciphertext);
+    const authTag = hexToBytes(bundle.authTag);
+    
+    const key = await deriveAesKey(password, salt);
+    
+    const combined = new Uint8Array([...ciphertext, ...authTag]);
+    const plaindata = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: iv },
+      key,
+      combined
+    );
+    
+    const plaintext = new TextDecoder().decode(plaindata);
+    S.aesBundle = bundle;
+    
+    document.getElementById('aes-plaintext-out').textContent = plaintext;
+    document.getElementById('aes-dec-output').style.display = 'block';
+    
+    st.innerHTML = '<div class="status status-ok">Decrypted successfully</div>';
+  } catch (e) {
+    st.innerHTML = '<div class="status status-error">Decryption failed: ' + e.message + '</div>';
+    document.getElementById('aes-dec-output').style.display = 'none';
+  }
+}
+
+function copyAesBundle() {
+  const text = JSON.stringify(S.aesBundle, null, 2);
+  navigator.clipboard.writeText(text).then(() => {
+    alert('Encrypted bundle copied!');
+  });
+}
+
+function autoFillDecrypt() {
+  if (S.aesBundle) {
+    document.getElementById('aes-dec-bundle').value = JSON.stringify(S.aesBundle, null, 2);
+    switchTab('aes-dec', 'aes-tabs', 'aes-enc-btn,aes-dec-btn');
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  KEY GENERATION
+// ═══════════════════════════════════════════════
+
+async function generateKeys() {
+  const name = document.getElementById('user-name').value.trim() || 'User';
+  const st = document.getElementById('keygen-status');
+  st.innerHTML = `<div class="status status-info"><span class="spin">⟳</span> Generating RSA-2048… (1–2s)</div>`;
+  await sleep(50);
+  try {
+    const pair = await crypto.subtle.generateKey(
+      { name:'RSA-PSS', modulusLength:2048, publicExponent:new Uint8Array([1,0,1]), hash:'SHA-256' },
+      true, ['sign','verify']
+    );
+    const privDer = await crypto.subtle.exportKey('pkcs8', pair.privateKey);
+    const pubDer  = await crypto.subtle.exportKey('spki',  pair.publicKey);
+    const privPem = derToPem(privDer, 'PRIVATE KEY');
+    const pubPem  = derToPem(pubDer,  'PUBLIC KEY');
+    const entry = { name, privKey: pair.privateKey, pubKey: pair.publicKey, privPem, pubPem, created: new Date().toLocaleTimeString() };
+    S.keys.push(entry);
+    document.getElementById('priv-display').textContent = privPem;
+    document.getElementById('pub-display').textContent  = pubPem;
+    document.getElementById('key-display-card').style.display = 'block';
+    document.getElementById('keystore-wrapper').style.display = 'block';
+    renderKeystore();
+    refreshKeyPicker();
+    st.innerHTML = `<div class="status status-ok">✓ Keys generated for <strong>${name}</strong></div>`;
+    document.getElementById('key-count').textContent = S.keys.length;
+  } catch(e) {
+    st.innerHTML = `<div class="status status-err">✗ ${e.message}</div>`;
+  }
+}
+
+function derToPem(der, label) {
+  return `-----BEGIN ${label}-----\n` + ab2b64(der).match(/.{1,64}/g).join('\n') + `\n-----END ${label}-----`;
+}
+
+function renderKeystore() {
+  const el = document.getElementById('keystore-list');
+  el.innerHTML = S.keys.map((k,i) => `
+    <div class="signer-row">
+      <div class="signer-left">
+        <div class="avatar">${k.name.slice(0,2).toUpperCase()}</div>
+        <div>
+          <div class="signer-name">${k.name}</div>
+          <div class="signer-time">Generated at ${k.created}</div>
+        </div>
+      </div>
+      <span class="badge badge-info">RSA-2048</span>
+    </div>`).join('');
+}
+
+function refreshKeyPicker() {
+  const sel = document.getElementById('key-picker');
+  sel.innerHTML = S.keys.map((k,i) => `<option value="${i}">${k.name} (key #${i+1})</option>`).join('');
+  if (S.keys.length > 0) {
+    document.getElementById('no-keys-warn').style.display = 'none';
+    document.getElementById('key-selector').style.display = 'block';
+    document.getElementById('sign-btn').disabled = false;
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  SIGNING
+// ═══════════════════════════════════════════════
+
+async function signDocument() {
+  const idx = parseInt(document.getElementById('key-picker').value) || 0;
+  const key = S.keys[idx];
+  if (!key) return;
+  let doc = '';
+  const tab = document.getElementById('stab-text');
+  if (tab && tab.style.display !== 'none') {
+    doc = document.getElementById('sign-doc').value.trim();
+  } else {
+    doc = S.fileContent || '';
+  }
+  if (!doc) { document.getElementById('sign-status').innerHTML = `<div class="status status-warn">Enter a document first.</div>`; return; }
+  const st = document.getElementById('sign-status');
+  st.innerHTML = `<div class="status status-info"><span class="spin">⟳</span> Hashing + signing…</div>`;
+  await sleep(30);
+  try {
+    const docBytes = new TextEncoder().encode(doc);
+    const hashBuf  = await crypto.subtle.digest('SHA-256', docBytes);
+    const hashHex  = bytesToHex(hashBuf);
+    const sigBuf   = await crypto.subtle.sign({ name:'RSA-PSS', saltLength:32 }, key.privKey, docBytes);
+    const sigHex   = bytesToHex(sigBuf);
+    document.getElementById('out-hash').textContent = hashHex;
+    document.getElementById('out-sig').textContent  = sigHex.slice(0,80) + '…';
+    renderHashVis(new Uint8Array(hashBuf), 'hash-color-vis');
+    const bundle = { document:doc, signature:sigHex, publicKey:key.pubPem, signer:key.name, timestamp:new Date().toISOString(), algorithm:'RSA-PSS-SHA256', keySize:2048 };
+    S.lastBundle = bundle;
+    document.getElementById('sig-output').style.display = 'block';
+    st.innerHTML = `<div class="status status-ok">✓ Signed by <strong>${key.name}</strong> at ${new Date().toLocaleTimeString()}</div>`;
+  } catch(e) {
+    st.innerHTML = `<div class="status status-err">✗ ${e.message}</div>`;
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  VERIFICATION
+// ═══════════════════════════════════════════════
+
+async function verifyBundle() {
+  const raw = document.getElementById('verify-bundle').value.trim();
+  let b;
+  try { b = JSON.parse(raw); } catch(e) { showVerifyResult(false, 'Invalid JSON', null); return; }
+  await doVerify(b.document, b.signature, b.publicKey, b);
+}
+
+async function verifyManual() {
+  const doc = document.getElementById('v-doc').value;
+  const sig = document.getElementById('v-sig').value.trim();
+  const pub = document.getElementById('v-pub').value.trim();
+  await doVerify(doc, sig, pub, null);
+}
+
+async function doVerify(doc, sigHex, pubPem, meta) {
+  try {
+    const pubKey   = await importPublicKey(pubPem);
+    const docBytes = new TextEncoder().encode(doc);
+    const sigBytes = hexToBytes(sigHex);
+    const valid    = await crypto.subtle.verify({ name:'RSA-PSS', saltLength:32 }, pubKey, sigBytes, docBytes);
+    const hashBuf  = await crypto.subtle.digest('SHA-256', docBytes);
+    const hashHex  = bytesToHex(hashBuf);
+    showVerifyResult(valid, null, { hashHex, meta });
+  } catch(e) {
+    showVerifyResult(false, e.message, null);
+  }
+}
+
+function showVerifyResult(valid, err, data) {
+  const el = document.getElementById('verify-result');
+  el.style.display = 'block';
+  let html = '';
+  if (valid) {
+    html += `<div class="verify-big ok"><div class="verify-icon">✓</div><div><div class="verify-title">Signature VALID</div><div class="verify-subtitle">Document is authentic and untampered</div></div></div>`;
+  } else {
+    html += `<div class="verify-big err"><div class="verify-icon">✗</div><div><div class="verify-title">Signature INVALID</div><div class="verify-subtitle">${err || 'Document may have been tampered or wrong key used'}</div></div></div>`;
+  }
+  if (data) {
+    html += `<div class="card"><div class="info-table">`;
+    html += `<div class="info-row"><span class="info-key">SHA-256 of document</span><span class="info-val">${data.hashHex ? data.hashHex.slice(0,40)+'…' : '—'}</span></div>`;
+    if (data.meta) {
+      html += `<div class="info-row"><span class="info-key">Signer</span><span class="info-val">${data.meta.signer||'—'}</span></div>`;
+      html += `<div class="info-row"><span class="info-key">Timestamp</span><span class="info-val">${data.meta.timestamp||'—'}</span></div>`;
+      html += `<div class="info-row"><span class="info-key">Algorithm</span><span class="info-val">${data.meta.algorithm||'RSA-PSS-SHA256'}</span></div>`;
+      html += `<div class="info-row"><span class="info-key">Key Size</span><span class="info-val">${data.meta.keySize||2048} bits</span></div>`;
+    }
+    html += `</div></div>`;
+  }
+  document.getElementById('verify-result-inner').innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════
+//  TAMPER TEST
+// ═══════════════════════════════════════════════
+
+function loadTamperDoc() {
+  if (!S.lastBundle) { document.getElementById('tamper-status').innerHTML = `<div class="status status-warn">Sign a document first.</div>`; return; }
+  S.tamperBundle = JSON.parse(JSON.stringify(S.lastBundle));
+  document.getElementById('tamper-preview').innerHTML = `<div class="mono-block">${esc(S.tamperBundle.document)}</div>`;
+  document.getElementById('tamper-btn').disabled = false;
+  document.getElementById('tamper-status').innerHTML = `<div class="status status-info">Original document loaded. Tamper it.</div>`;
+}
+
+function tamperDoc() {
+  if (!S.tamperBundle) return;
+  S.tamperBundle.document = S.tamperBundle.document.replace(/\d+/, m => String(parseInt(m)+99999));
+  if (!S.tamperBundle.document.includes('99999')) S.tamperBundle.document += ' [TAMPERED]';
+  document.getElementById('tamper-preview').innerHTML = `<div class="mono-block" style="border-color:var(--red)">${esc(S.tamperBundle.document)}</div>`;
+  document.getElementById('tamper-verify-btn').disabled = false;
+  document.getElementById('tamper-status').innerHTML = `<div class="status status-warn">⚠ Document tampered. Now verify — it will fail.</div>`;
+}
+
+async function verifyTampered() {
+  if (!S.tamperBundle) return;
+  await doVerify(S.tamperBundle.document, S.tamperBundle.signature, S.tamperBundle.publicKey, null);
+  nav('verify');
+}
+
+// ═══════════════════════════════════════════════
+//  MULTI-SIGN
+// ═══════════════════════════════════════════════
+
+async function addMultiSign() {
+  if (S.keys.length === 0) { document.getElementById('multi-status').innerHTML = `<div class="status status-warn">Generate keys first.</div>`; return; }
+  const idx  = S.multiSigs.length % S.keys.length;
+  const key  = S.keys[idx];
+  const doc  = document.getElementById('multi-doc').value;
+  const sigBuf = await crypto.subtle.sign({ name:'RSA-PSS', saltLength:32 }, key.privKey, new TextEncoder().encode(doc));
+  S.multiSigs.push({ signer:key.name, sigHex:bytesToHex(sigBuf), pubPem:key.pubPem, time:new Date().toLocaleTimeString() });
+  renderMultiList();
+  document.getElementById('multi-status').innerHTML = `<div class="status status-ok">✓ ${key.name} signed successfully.</div>`;
+}
+
+async function verifyAllMulti() {
+  if (!S.multiSigs.length) { document.getElementById('multi-status').innerHTML = `<div class="status status-warn">No signatures yet.</div>`; return; }
+  const doc = document.getElementById('multi-doc').value;
+  let all = true;
+  for (const s of S.multiSigs) {
+    const pk = await importPublicKey(s.pubPem);
+    const ok = await crypto.subtle.verify({ name:'RSA-PSS', saltLength:32 }, pk, hexToBytes(s.sigHex), new TextEncoder().encode(doc));
+    if (!ok) all = false;
+  }
+  document.getElementById('multi-status').innerHTML = all
+    ? `<div class="status status-ok">✓ All ${S.multiSigs.length} signatures valid — contract is authentic.</div>`
+    : `<div class="status status-err">✗ One or more signatures invalid.</div>`;
+}
+
+function renderMultiList() {
+  const el = document.getElementById('multi-signer-list');
+  if (!S.multiSigs.length) { el.innerHTML = `<div style="font-size:13px;color:var(--text3);font-family:var(--mono)">No signatures yet.</div>`; return; }
+  el.innerHTML = S.multiSigs.map(s => `
+    <div class="signer-row">
+      <div class="signer-left">
+        <div class="avatar">${s.signer.slice(0,2).toUpperCase()}</div>
+        <div>
+          <div class="signer-name">${s.signer}</div>
+          <div class="signer-time">Signed at ${s.time}</div>
+        </div>
+      </div>
+      <span class="badge badge-ok">✓ Signed</span>
+    </div>`).join('');
+}
+
+function resetMulti() { S.multiSigs = []; renderMultiList(); document.getElementById('multi-status').innerHTML = ''; }
+
+// ═══════════════════════════════════════════════
+//  LIVE HASH DEMO
+// ═══════════════════════════════════════════════
+
+async function updateLiveHash() {
+  const txt = document.getElementById('live-input').value;
+  if (!txt) { document.getElementById('live-hash-out').textContent = '—'; return; }
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(txt));
+  document.getElementById('live-hash-out').textContent = bytesToHex(buf);
+  renderHashVis(new Uint8Array(buf), 'live-hash-vis');
+}
+
+// ═══════════════════════════════════════════════
+//  UTILITIES
+// ═══════════════════════════════════════════════
+
+function renderHashVis(bytes, id) {
+  const el = document.getElementById(id);
+  el.innerHTML = '';
+  bytes.forEach(b => {
+    const d = document.createElement('div');
+    d.className = 'hash-byte';
+    d.style.background = `hsl(${Math.round(b/255*360)},65%,50%)`;
+    el.appendChild(d);
+  });
+}
+
+function exportBundle() {
+  if (!S.lastBundle) return;
+  const blob = new Blob([JSON.stringify(S.lastBundle, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'signed-document-' + Date.now() + '.json';
+  a.click();
+}
+
+function copyBundle() {
+  if (!S.lastBundle) return;
+  navigator.clipboard.writeText(JSON.stringify(S.lastBundle, null, 2));
+}
+
+// ═══════════════════════════════════════════════
+//  ENCRYPT SIGNED BUNDLE WITH AES-256-GCM
+// ═══════════════════════════════════════════════
+async function encryptSignedBundle() {
+  if (!S.lastBundle) {
+    document.getElementById('sign-aes-status').innerHTML = `<div class="status status-warn">Sign a document first.</div>`;
+    return;
+  }
+  const password = document.getElementById('sign-aes-pass').value;
+  if (!password) {
+    document.getElementById('sign-aes-status').innerHTML = `<div class="status status-warn">Enter a password.</div>`;
+    return;
+  }
+  document.getElementById('sign-aes-status').innerHTML = `<div class="status status-info"><span class="spin">⟳</span> Encrypting…</div>`;
+  await sleep(30);
+  try {
+    // Generate random salt and IV
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv   = crypto.getRandomValues(new Uint8Array(12));
+    
+    // Derive AES key from password
+    const aesKey = await deriveAesKey(password, salt);
+    
+    // Encrypt the entire signed bundle (as JSON string)
+    const bundleStr = JSON.stringify(S.lastBundle);
+    const cipherBuf = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      aesKey,
+      new TextEncoder().encode(bundleStr)
+    );
+    
+    // Split ciphertext and GCM auth tag
+    const cipherBytes = new Uint8Array(cipherBuf);
+    const cipherOnly  = cipherBytes.slice(0, -16);
+    const authTag     = cipherBytes.slice(-16);
+    
+    // Build encrypted bundle
+    const encryptedBundle = {
+      encrypted: {
+        salt:       bytesToHex(salt),
+        iv:         bytesToHex(iv),
+        ciphertext: bytesToHex(cipherOnly),
+        tag:        bytesToHex(authTag)
+      },
+      algorithm: 'RSA-PSS-SHA256 + AES-256-GCM',
+      kdf: 'PBKDF2-SHA256-100000',
+      message: 'Decrypt with the password, then verify the signature inside'
+    };
+    
+    S.encryptedSignature = encryptedBundle;
+    document.getElementById('sign-aes-bundle').textContent = JSON.stringify(encryptedBundle, null, 2);
+    document.getElementById('sign-aes-output').style.display = 'block';
+    document.getElementById('sign-aes-status').innerHTML = `<div class="status status-ok">✓ Encrypted with AES-256-GCM — ${cipherOnly.length} bytes</div>`;
+  } catch(e) {
+    document.getElementById('sign-aes-status').innerHTML = `<div class="status status-err">✗ ${e.message}</div>`;
+  }
+}
+
+function copyEncryptedSignature() {
+  if (!S.encryptedSignature) return;
+  navigator.clipboard.writeText(JSON.stringify(S.encryptedSignature, null, 2));
+}
+
+function downloadEncryptedSignature() {
+  if (!S.encryptedSignature) return;
+  const blob = new Blob([JSON.stringify(S.encryptedSignature, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'encrypted-signature-' + Date.now() + '.json';
+  a.click();
+}
+
+function copyText(id) {
+  navigator.clipboard.writeText(document.getElementById(id).textContent);
+}
+
+function loadFile() {
+  const file = document.getElementById('file-input').files[0];
+  if (!file) return;
+  const r = new FileReader();
+  r.onload = e => {
+    S.fileContent = e.target.result;
+    document.getElementById('file-info').textContent = `✓ Loaded: ${file.name} (${file.size} bytes)`;
+  };
+  r.readAsText(file);
+}
+
+function nav(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.getElementById('nav-' + page).classList.add('active');
+  if (page === 'learn') updateLiveHash();
+}
+
+function switchTab(showId, containerId, btnIds) {
+  const c = document.getElementById(containerId);
+  c.querySelectorAll(':scope > div').forEach(d => d.style.display = 'none');
+  document.getElementById(showId).style.display = 'block';
+  btnIds.split(',').forEach(id => {
+    const el = document.getElementById(id.trim());
+    if (el) el.classList.toggle('active', id.trim() === showId + '-btn');
+  });
+}
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ═══ INIT ═══
+renderMultiList();
+updateLiveHash();
+</script>
+</body>
+</html>
