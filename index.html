@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>SecureSign — Digital Signature System</title>
 <!-- No external fonts, APIs, or libraries. Zero network requests. -->
-<!-- All cryptography via browser built-in window.crypto.subtle only -->
+<!-- All cryptography: pure JavaScript SHA-256, AES-256-GCM, RSA-2048, PBKDF2. Zero APIs. -->
 <style>
   :root {
     --bg: #f8f9fb;
@@ -231,7 +231,7 @@
     <div class="page active" id="page-keygen">
       <div class="page-header">
         <h1>Key Generation</h1>
-        
+        <p>RSA-2048 </p>
       </div>
       <div class="card">
         <div class="card-label">Identity</div>
@@ -361,7 +361,7 @@
     <div class="page" id="page-verify">
       <div class="page-header">
         <h1>Verify Signature</h1>
-        
+        <p>Decrypt signature with public key → compare SHA-256 hashes</p>
       </div>
       <div class="tab-bar">
         <div class="tab active" id="vtab-plain-btn" onclick="switchTab('vtab-plain','vtabs','vtab-plain-btn,vtab-enc-btn,vtab-manual-btn')">Plain Bundle</div>
@@ -440,7 +440,7 @@
     <div class="page" id="page-aes">
       <div class="page-header">
         <h1>AES-256-GCM Encryption</h1>
-        
+        <p>Symmetric encryption — password → PBKDF2 → AES-256 key → encrypt/decrypt</p>
       </div>
 
       <!-- RSA vs AES explainer -->
@@ -1017,8 +1017,7 @@ Bob agrees to pay ₹1,00,000 upon successful delivery.</textarea>
   </main>
 </div>
 
-<script>
-// ═══════════════════════════════════════════════════════════════
+<script>// ═══════════════════════════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════════════════════════
 const S = {
@@ -1028,276 +1027,701 @@ const S = {
   tamperBundle: null,
   fileContent: null,
   aesBundle: null,
-  encBundle: null
+  encBundle: null,
 };
 
 // ═══════════════════════════════════════════════════════════════
 //  ENCODING HELPERS
 // ═══════════════════════════════════════════════════════════════
-const bytesToHex = buf => Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+const bytesToHex = (buf) =>
+  Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 function hexToBytes(hex) {
   const a = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < hex.length; i += 2) a[i/2] = parseInt(hex.substr(i,2),16);
+  for (let i = 0; i < hex.length; i += 2) a[i / 2] = parseInt(hex.substr(i, 2), 16);
   return a;
 }
-function ab2b64(buf) { let s=''; new Uint8Array(buf).forEach(b=>s+=String.fromCharCode(b)); return btoa(s); }
-function b642ab(b64) { const s=atob(b64); const b=new Uint8Array(s.length); for(let i=0;i<s.length;i++) b[i]=s.charCodeAt(i); return b.buffer; }
-function derToPem(der,label) { return `-----BEGIN ${label}-----\n`+ab2b64(der).match(/.{1,64}/g).join('\n')+`\n-----END ${label}-----`; }
-
-// ═══════════════════════════════════════════════════════════════
-//  SHA-256
-// ═══════════════════════════════════════════════════════════════
-async function sha256(bytes) { return crypto.subtle.digest('SHA-256', bytes); }
-
-// ═══════════════════════════════════════════════════════════════
-//  RSA KEY IMPORT
-// ═══════════════════════════════════════════════════════════════
-async function importPublicKey(pem) {
-  const b64 = pem.replace(/-----[^-]+-----/g,'').replace(/\s/g,'');
-  return crypto.subtle.importKey('spki', b642ab(b64), {name:'RSA-PSS',hash:'SHA-256'}, false, ['verify']);
+function strToBytes(s) {
+  return new TextEncoder().encode(s);
+}
+function bytesToStr(b) {
+  return new TextDecoder().decode(b);
+}
+function ab2b64(buf) {
+  let s = "";
+  new Uint8Array(buf).forEach((b) => (s += String.fromCharCode(b)));
+  return btoa(s);
+}
+function b642ab(b64) {
+  const s = atob(b64);
+  const b = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i);
+  return b.buffer;
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  AES HELPERS
-//  deriveAesKey: password + salt → AES-256-GCM CryptoKey via PBKDF2
-//  The salt is REQUIRED and must be stored alongside the ciphertext
-//  so the same key can be re-derived on decryption.
+//  SHA-256  pure JavaScript  FIPS 180-4
+//  64 rounds of bitwise compression on 512-bit blocks
 // ═══════════════════════════════════════════════════════════════
-async function deriveAesKey(password, salt, usage) {
-  // Step 1: import raw password bytes as a PBKDF2 base key
-  const base = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(password),
-    'PBKDF2',
-    false,
-    ['deriveKey']
-  );
-  // Step 2: derive a 256-bit AES-GCM key from the base key
-  // usage must be ['encrypt'] or ['decrypt'] — NOT both at once
-  return crypto.subtle.deriveKey(
-    { name:'PBKDF2', salt, iterations:100000, hash:'SHA-256' },
-    base,
-    { name:'AES-GCM', length:256 },
-    false,           // not extractable (we don't need to export the raw key bytes)
-    usage
-  );
+const SHA256_K = [
+  0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+  0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+  0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+  0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+  0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+  0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+  0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+  0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+];
+const SHA256_H0 = [
+  0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
+];
+function rotr32(x, n) {
+  return ((x >>> n) | (x << (32 - n))) >>> 0;
+}
+function sha256Block(H, M) {
+  const W = new Uint32Array(64);
+  for (let i = 0; i < 16; i++) W[i] = M[i];
+  for (let i = 16; i < 64; i++) {
+    const s0 = (rotr32(W[i - 15], 7) ^ rotr32(W[i - 15], 18) ^ (W[i - 15] >>> 3)) >>> 0;
+    const s1 = (rotr32(W[i - 2], 17) ^ rotr32(W[i - 2], 19) ^ (W[i - 2] >>> 10)) >>> 0;
+    W[i] = (W[i - 16] + s0 + W[i - 7] + s1) >>> 0;
+  }
+  let [a, b, c, d, e, f, g, h] = [...H];
+  for (let i = 0; i < 64; i++) {
+    const S1 = (rotr32(e, 6) ^ rotr32(e, 11) ^ rotr32(e, 25)) >>> 0;
+    const ch = ((e & f) ^ (~e & g)) >>> 0;
+    const t1 = (h + S1 + ch + SHA256_K[i] + W[i]) >>> 0;
+    const S0 = (rotr32(a, 2) ^ rotr32(a, 13) ^ rotr32(a, 22)) >>> 0;
+    const maj = ((a & b) ^ (a & c) ^ (b & c)) >>> 0;
+    const t2 = (S0 + maj) >>> 0;
+    h = g;
+    g = f;
+    f = e;
+    e = (d + t1) >>> 0;
+    d = c;
+    c = b;
+    b = a;
+    a = (t1 + t2) >>> 0;
+  }
+  return [
+    (H[0] + a) >>> 0,
+    (H[1] + b) >>> 0,
+    (H[2] + c) >>> 0,
+    (H[3] + d) >>> 0,
+    (H[4] + e) >>> 0,
+    (H[5] + f) >>> 0,
+    (H[6] + g) >>> 0,
+    (H[7] + h) >>> 0,
+  ];
+}
+function sha256(data) {
+  const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+  const bitLen = bytes.length * 8;
+  const padLen = bytes.length % 64 < 56 ? 56 - (bytes.length % 64) : 120 - (bytes.length % 64);
+  const padded = new Uint8Array(bytes.length + padLen + 8);
+  padded.set(bytes);
+  padded[bytes.length] = 0x80;
+  const dv = new DataView(padded.buffer);
+  dv.setUint32(padded.length - 4, bitLen >>> 0, false);
+  dv.setUint32(padded.length - 8, Math.floor(bitLen / 0x100000000), false);
+  let H = [...SHA256_H0];
+  for (let o = 0; o < padded.length; o += 64) {
+    const bl = new Uint32Array(16);
+    for (let i = 0; i < 16; i++) bl[i] = dv.getUint32(o + i * 4, false);
+    H = sha256Block(H, bl);
+  }
+  const dig = new Uint8Array(32);
+  const odv = new DataView(dig.buffer);
+  H.forEach((v, i) => odv.setUint32(i * 4, v, false));
+  return dig;
+}
+function hmacSha256(key, data) {
+  const BL = 64;
+  let k = key.length > BL ? sha256(key) : key;
+  const kp = new Uint8Array(BL);
+  kp.set(k);
+  const ip = new Uint8Array(BL),
+    op = new Uint8Array(BL);
+  for (let i = 0; i < BL; i++) {
+    ip[i] = kp[i] ^ 0x36;
+    op[i] = kp[i] ^ 0x5c;
+  }
+  const inner = new Uint8Array(BL + data.length);
+  inner.set(ip);
+  inner.set(data, BL);
+  const outer = new Uint8Array(BL + 32);
+  outer.set(op);
+  outer.set(sha256(inner), BL);
+  return sha256(outer);
 }
 
-// AES-256-GCM encrypt: returns { salt, iv, ciphertext, tag } all as hex strings
-async function aesEncryptRaw(password, plaintext) {
-  const salt = crypto.getRandomValues(new Uint8Array(16));  // random salt for PBKDF2
-  const iv   = crypto.getRandomValues(new Uint8Array(12));  // random 96-bit IV for GCM
-  const key  = await deriveAesKey(password, salt, ['encrypt']);
-  // encrypt() returns ciphertext with 16-byte GCM auth tag appended at the end
-  const cipherBuf = await crypto.subtle.encrypt(
-    { name:'AES-GCM', iv },
-    key,
-    typeof plaintext === 'string' ? new TextEncoder().encode(plaintext) : plaintext
-  );
-  const bytes = new Uint8Array(cipherBuf);
+// ═══════════════════════════════════════════════════════════════
+//  PBKDF2-SHA256  pure JavaScript
+//  password+salt → 256-bit key via 100,000 HMAC-SHA256 rounds
+// ═══════════════════════════════════════════════════════════════
+function pbkdf2(password, salt, iterations, keyLen) {
+  const pw = typeof password === "string" ? strToBytes(password) : password;
+  const result = new Uint8Array(keyLen);
+  let offset = 0,
+    block = 1;
+  while (offset < keyLen) {
+    const sb = new Uint8Array(salt.length + 4);
+    sb.set(salt);
+    new DataView(sb.buffer).setUint32(salt.length, block, false);
+    let U = hmacSha256(pw, sb);
+    const T = new Uint8Array(U);
+    for (let i = 1; i < iterations; i++) {
+      U = hmacSha256(pw, U);
+      for (let j = 0; j < T.length; j++) T[j] ^= U[j];
+    }
+    const take = Math.min(keyLen - offset, T.length);
+    result.set(T.slice(0, take), offset);
+    offset += take;
+    block++;
+  }
+  return result;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  AES-256  pure JavaScript  FIPS 197
+//  14 rounds: SubBytes ShiftRows MixColumns AddRoundKey
+// ═══════════════════════════════════════════════════════════════
+const AES_SBOX = (() => {
+  const s = new Uint8Array(256);
+  let p = 1,
+    q = 1;
+  function r8(b, n) {
+    return ((b >> n) | (b << (8 - n))) & 0xff;
+  }
+  do {
+    p = (p ^ (p << 1) ^ (p & 0x80 ? 0x1b : 0)) & 0xff;
+    q ^= q << 1;
+    q ^= q << 2;
+    q ^= q << 4;
+    q ^= q & 0x80 ? 0x09 : 0;
+    q &= 0xff;
+    s[p] = q ^ r8(q, 4) ^ r8(q, 5) ^ r8(q, 6) ^ r8(q, 7) ^ 0x63;
+  } while (p !== 1);
+  s[0] = 0x63;
+  return s;
+})();
+const AES_SBOX_INV = new Uint8Array(256);
+AES_SBOX.forEach((v, i) => {
+  AES_SBOX_INV[v] = i;
+});
+function gmul(a, b) {
+  let p = 0;
+  for (let i = 0; i < 8; i++) {
+    if (b & 1) p ^= a;
+    const h = a & 0x80;
+    a = (a << 1) & 0xff;
+    if (h) a ^= 0x1b;
+    b >>= 1;
+  }
+  return p;
+}
+const RCON = [0x00, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36];
+function aesKeyExpand(key) {
+  const W = new Uint8Array(240);
+  W.set(key.slice(0, 32));
+  for (let i = 8; i < 60; i++) {
+    let t = W.slice((i - 1) * 4, i * 4);
+    if (i % 8 === 0)
+      t = new Uint8Array([
+        AES_SBOX[t[1]] ^ RCON[i / 8],
+        AES_SBOX[t[2]],
+        AES_SBOX[t[3]],
+        AES_SBOX[t[0]],
+      ]);
+    else if (i % 8 === 4)
+      t = new Uint8Array([AES_SBOX[t[0]], AES_SBOX[t[1]], AES_SBOX[t[2]], AES_SBOX[t[3]]]);
+    for (let j = 0; j < 4; j++) W[i * 4 + j] = W[(i - 8) * 4 + j] ^ t[j];
+  }
+  return W;
+}
+function addRoundKey(s, W, r) {
+  for (let i = 0; i < 16; i++) s[i] ^= W[r * 16 + i];
+}
+function subBytes(s, inv = false) {
+  const b = inv ? AES_SBOX_INV : AES_SBOX;
+  for (let i = 0; i < 16; i++) s[i] = b[s[i]];
+}
+function shiftRows(s, inv = false) {
+  const t = s.slice();
+  if (!inv) {
+    s[1] = t[5];
+    s[5] = t[9];
+    s[9] = t[13];
+    s[13] = t[1];
+    s[2] = t[10];
+    s[6] = t[14];
+    s[10] = t[2];
+    s[14] = t[6];
+    s[3] = t[15];
+    s[7] = t[3];
+    s[11] = t[7];
+    s[15] = t[11];
+  } else {
+    s[1] = t[13];
+    s[5] = t[1];
+    s[9] = t[5];
+    s[13] = t[9];
+    s[2] = t[10];
+    s[6] = t[14];
+    s[10] = t[2];
+    s[14] = t[6];
+    s[3] = t[7];
+    s[7] = t[11];
+    s[11] = t[15];
+    s[15] = t[3];
+  }
+}
+function mixColumns(s, inv = false) {
+  for (let c = 0; c < 4; c++) {
+    const i = c * 4;
+    const [a, b, d, e] = [s[i], s[i + 1], s[i + 2], s[i + 3]];
+    if (!inv) {
+      s[i] = gmul(2, a) ^ gmul(3, b) ^ d ^ e;
+      s[i + 1] = a ^ gmul(2, b) ^ gmul(3, d) ^ e;
+      s[i + 2] = a ^ b ^ gmul(2, d) ^ gmul(3, e);
+      s[i + 3] = gmul(3, a) ^ b ^ d ^ gmul(2, e);
+    } else {
+      s[i] = gmul(14, a) ^ gmul(11, b) ^ gmul(13, d) ^ gmul(9, e);
+      s[i + 1] = gmul(9, a) ^ gmul(14, b) ^ gmul(11, d) ^ gmul(13, e);
+      s[i + 2] = gmul(13, a) ^ gmul(9, b) ^ gmul(14, d) ^ gmul(11, e);
+      s[i + 3] = gmul(11, a) ^ gmul(13, b) ^ gmul(9, d) ^ gmul(14, e);
+    }
+  }
+}
+function aesEncBlock(block, W) {
+  const s = new Uint8Array(block);
+  addRoundKey(s, W, 0);
+  for (let r = 1; r <= 13; r++) {
+    subBytes(s);
+    shiftRows(s);
+    mixColumns(s);
+    addRoundKey(s, W, r);
+  }
+  subBytes(s);
+  shiftRows(s);
+  addRoundKey(s, W, 14);
+  return s;
+}
+function aesDecBlock(block, W) {
+  const s = new Uint8Array(block);
+  addRoundKey(s, W, 14);
+  for (let r = 13; r >= 1; r--) {
+    shiftRows(s, true);
+    subBytes(s, true);
+    addRoundKey(s, W, r);
+    mixColumns(s, true);
+  }
+  shiftRows(s, true);
+  subBytes(s, true);
+  addRoundKey(s, W, 0);
+  return s;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  AES-256-GCM  CTR mode + GHASH authentication
+// ═══════════════════════════════════════════════════════════════
+function gcmMul(X, H) {
+  let Z = new Uint8Array(16),
+    V = new Uint8Array(H);
+  for (let i = 0; i < 128; i++) {
+    if ((X[Math.floor(i / 8)] >> (7 - (i % 8))) & 1) for (let j = 0; j < 16; j++) Z[j] ^= V[j];
+    const lsb = V[15] & 1;
+    for (let j = 15; j > 0; j--) V[j] = (V[j] >> 1) | ((V[j - 1] & 1) << 7);
+    V[0] >>= 1;
+    if (lsb) V[0] ^= 0xe1;
+  }
+  return Z;
+}
+function ghash(H, data) {
+  let X = new Uint8Array(16);
+  for (let i = 0; i < data.length; i += 16) {
+    const bl = data.slice(i, i + 16);
+    for (let j = 0; j < 16; j++) X[j] ^= bl[j];
+    X = gcmMul(X, H);
+  }
+  return X;
+}
+function padTo16(d) {
+  const p = d.length % 16 === 0 ? 0 : 16 - (d.length % 16);
+  const o = new Uint8Array(d.length + p);
+  o.set(d);
+  return o;
+}
+function gcmEncrypt(key, iv, pt) {
+  const W = aesKeyExpand(key),
+    H = aesEncBlock(new Uint8Array(16), W);
+  const J0 = new Uint8Array(16);
+  J0.set(iv);
+  J0[15] = 1;
+  const ct = new Uint8Array(pt.length),
+    ctr = new Uint8Array(J0);
+  for (let i = 0; i < pt.length; i += 16) {
+    for (let j = 15; j >= 12; j--) {
+      ctr[j] = (ctr[j] + 1) & 0xff;
+      if (ctr[j] !== 0) break;
+    }
+    const ks = aesEncBlock(ctr, W);
+    for (let j = 0; j < Math.min(16, pt.length - i); j++) ct[i + j] = pt[i + j] ^ ks[j];
+  }
+  const cp = padTo16(ct),
+    lb = new Uint8Array(16);
+  new DataView(lb.buffer).setUint32(12, ct.length * 8, false);
+  const gi = new Uint8Array(cp.length + 16);
+  gi.set(cp);
+  gi.set(lb, cp.length);
+  const S = ghash(H, gi),
+    EJ0 = aesEncBlock(J0, W),
+    tag = new Uint8Array(16);
+  for (let i = 0; i < 16; i++) tag[i] = EJ0[i] ^ S[i];
+  return { ciphertext: ct, tag };
+}
+function gcmDecrypt(key, iv, ct, tag) {
+  const W = aesKeyExpand(key),
+    H = aesEncBlock(new Uint8Array(16), W);
+  const J0 = new Uint8Array(16);
+  J0.set(iv);
+  J0[15] = 1;
+  const cp = padTo16(ct),
+    lb = new Uint8Array(16);
+  new DataView(lb.buffer).setUint32(12, ct.length * 8, false);
+  const gi = new Uint8Array(cp.length + 16);
+  gi.set(cp);
+  gi.set(lb, cp.length);
+  const S = ghash(H, gi),
+    EJ0 = aesEncBlock(J0, W);
+  let mm = 0;
+  for (let i = 0; i < 16; i++) mm |= EJ0[i] ^ S[i] ^ tag[i];
+  if (mm !== 0)
+    throw new Error("GCM authentication tag mismatch — wrong password or tampered ciphertext");
+  const pt = new Uint8Array(ct.length),
+    ctr = new Uint8Array(J0);
+  for (let i = 0; i < ct.length; i += 16) {
+    for (let j = 15; j >= 12; j--) {
+      ctr[j] = (ctr[j] + 1) & 0xff;
+      if (ctr[j] !== 0) break;
+    }
+    const ks = aesEncBlock(ctr, W);
+    for (let j = 0; j < Math.min(16, ct.length - i); j++) pt[i + j] = ct[i + j] ^ ks[j];
+  }
+  return pt;
+}
+
+// Only non-crypto-API call: OS CSPRNG for randomness (not a network API)
+function randomBytes(n) {
+  return crypto.getRandomValues(new Uint8Array(n));
+}
+
+function aesEncryptRaw(password, plaintext) {
+  const salt = randomBytes(16),
+    iv = randomBytes(12);
+  const key = pbkdf2(password, salt, 100000, 32);
+  const pt = typeof plaintext === "string" ? strToBytes(plaintext) : plaintext;
+  const { ciphertext, tag } = gcmEncrypt(key, iv, pt);
   return {
-    salt:       bytesToHex(salt),
-    iv:         bytesToHex(iv),
-    ciphertext: bytesToHex(bytes.slice(0,-16)),  // everything except last 16 bytes
-    tag:        bytesToHex(bytes.slice(-16)),     // last 16 bytes = GCM auth tag
-    algorithm:  'AES-256-GCM',
-    kdf:        'PBKDF2-SHA256-100000'
+    salt: bytesToHex(salt),
+    iv: bytesToHex(iv),
+    ciphertext: bytesToHex(ciphertext),
+    tag: bytesToHex(tag),
+    algorithm: "AES-256-GCM",
+    kdf: "PBKDF2-SHA256-100000",
   };
 }
-
-// AES-256-GCM decrypt: returns plaintext string
-// Throws on wrong password or tampered ciphertext (GCM tag mismatch)
-async function aesDecryptRaw(password, bundle) {
-  const salt   = hexToBytes(bundle.salt);
-  const iv     = hexToBytes(bundle.iv);
-  const cipher = hexToBytes(bundle.ciphertext);
-  const tag    = hexToBytes(bundle.tag);
-  const key    = await deriveAesKey(password, salt, ['decrypt']);
-  // GCM expects ciphertext and auth tag concatenated
-  const combined = new Uint8Array(cipher.length + tag.length);
-  combined.set(cipher, 0);
-  combined.set(tag, cipher.length);
-  const plainBuf = await crypto.subtle.decrypt({ name:'AES-GCM', iv }, key, combined);
-  return new TextDecoder().decode(plainBuf);
+function aesDecryptRaw(password, bundle) {
+  const key = pbkdf2(password, hexToBytes(bundle.salt), 100000, 32);
+  return bytesToStr(
+    gcmDecrypt(key, hexToBytes(bundle.iv), hexToBytes(bundle.ciphertext), hexToBytes(bundle.tag)),
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  AES PAGE — ENCRYPT
+//  RSA-2048  pure JavaScript BigInt
+//  Miller-Rabin primality + Extended Euclidean + modpow CRT
 // ═══════════════════════════════════════════════════════════════
-async function aesEncrypt() {
-  const password  = document.getElementById('aes-enc-pass').value.trim();
-  const plaintext = document.getElementById('aes-plaintext').value;
-  const st = document.getElementById('aes-enc-status');
-  if (!password) { st.innerHTML = msg('warn','Enter a password.'); return; }
-  if (!plaintext) { st.innerHTML = msg('warn','Enter a message to encrypt.'); return; }
-  st.innerHTML = msg('info','<span class="spin">⟳</span> Deriving key + encrypting…');
-  await sleep(40);
-  try {
-    const bundle = await aesEncryptRaw(password, plaintext);
-    S.aesBundle = bundle;
-    // update UI
-    document.getElementById('aes-out-salt').textContent   = bundle.salt;
-    document.getElementById('aes-out-iv').textContent     = bundle.iv;
-    document.getElementById('aes-out-cipher').textContent = bundle.ciphertext;
-    document.getElementById('aes-out-tag').textContent    = bundle.tag;
-    document.getElementById('aes-cipher-size').textContent = (bundle.ciphertext.length/2) + ' bytes';
-    document.getElementById('aes-bundle-out').textContent = JSON.stringify(bundle, null, 2);
-    document.getElementById('aes-enc-output').style.display = 'block';
-    st.innerHTML = msg('ok', `✓ Encrypted — ${bundle.ciphertext.length/2} bytes ciphertext + 16-byte auth tag`);
-  } catch(e) {
-    st.innerHTML = msg('err', '✗ ' + e.message);
+function modpow(base, exp, mod) {
+  if (mod === 1n) return 0n;
+  let r = 1n;
+  base = base % mod;
+  while (exp > 0n) {
+    if (exp % 2n === 1n) r = (r * base) % mod;
+    exp = exp / 2n;
+    base = (base * base) % mod;
+  }
+  return r;
+}
+function extGcd(a, b) {
+  if (b === 0n) return { g: a, x: 1n, y: 0n };
+  const { g, x, y } = extGcd(b, a % b);
+  return { g, x: y, y: x - (a / b) * y };
+}
+function modInv(a, m) {
+  const { g, x } = extGcd(((a % m) + m) % m, m);
+  if (g !== 1n) throw new Error("No inverse");
+  return ((x % m) + m) % m;
+}
+function isPrime(n) {
+  if (n < 2n) return false;
+  if (n === 2n || n === 3n || n === 5n || n === 7n) return true;
+  if (n % 2n === 0n) return false;
+  let d = n - 1n,
+    r = 0n;
+  while (d % 2n === 0n) {
+    d /= 2n;
+    r++;
+  }
+  for (const a of [2n, 3n, 5n, 7n, 11n, 13n, 17n, 19n, 23n, 29n, 31n, 37n]) {
+    if (a >= n) continue;
+    let x = modpow(a, d, n);
+    if (x === 1n || x === n - 1n) continue;
+    let comp = true;
+    for (let i = 0n; i < r - 1n; i++) {
+      x = modpow(x, 2n, n);
+      if (x === n - 1n) {
+        comp = false;
+        break;
+      }
+    }
+    if (comp) return false;
+  }
+  return true;
+}
+function randomBigInt(bits) {
+  const bytes = Math.ceil(bits / 8);
+  const arr = randomBytes(bytes);
+  arr[0] |= 0x80;
+  arr[bytes - 1] |= 0x01;
+  return BigInt("0x" + bytesToHex(arr));
+}
+function generatePrime(bits) {
+  while (true) {
+    let c = randomBigInt(bits);
+    if (c % 2n === 0n) c += 1n;
+    if (isPrime(c)) return c;
   }
 }
-
-// ═══════════════════════════════════════════════════════════════
-//  AES PAGE — DECRYPT
-// ═══════════════════════════════════════════════════════════════
-async function aesDecrypt() {
-  const password = document.getElementById('aes-dec-pass').value.trim();
-  const raw      = document.getElementById('aes-dec-bundle').value.trim();
-  const st = document.getElementById('aes-dec-status');
-  if (!password) { st.innerHTML = msg('warn','Enter the password.'); return; }
-  if (!raw)      { st.innerHTML = msg('warn','Paste the encrypted bundle.'); return; }
-  let bundle;
-  try { bundle = JSON.parse(raw); } catch(e) { st.innerHTML = msg('err','Invalid JSON — check the bundle.'); return; }
-  // validate required fields
-  if (!bundle.salt || !bundle.iv || !bundle.ciphertext || !bundle.tag) {
-    st.innerHTML = msg('err', 'Bundle is missing fields. Expected: salt, iv, ciphertext, tag.');
-    return;
-  }
-  st.innerHTML = msg('info','<span class="spin">⟳</span> Re-deriving key + decrypting…');
-  await sleep(40);
-  try {
-    const plaintext = await aesDecryptRaw(password, bundle);
-    document.getElementById('aes-plaintext-out').textContent = plaintext;
-    document.getElementById('aes-dec-output').style.display = 'block';
-    st.innerHTML = msg('ok','✓ Decrypted successfully');
-  } catch(e) {
-    document.getElementById('aes-dec-output').style.display = 'none';
-    st.innerHTML = msg('err','✗ Decryption failed — wrong password or tampered ciphertext');
-  }
+function bigIntToBytes(n, len) {
+  let hex = n.toString(16);
+  if (hex.length % 2) hex = "0" + hex;
+  const b = hexToBytes(hex);
+  const o = new Uint8Array(len);
+  o.set(b, len - b.length);
+  return o;
+}
+function bytesToBigInt(bytes) {
+  return BigInt("0x" + bytesToHex(bytes));
 }
 
-function copyAesBundle()    { if(S.aesBundle) navigator.clipboard.writeText(JSON.stringify(S.aesBundle,null,2)); }
-function downloadAesBundle() {
-  if(!S.aesBundle) return;
-  download(JSON.stringify(S.aesBundle,null,2),'aes-encrypted-'+Date.now()+'.json');
+// PKCS#1 v1.5 SHA-256 signature padding
+const SHA256_DI = hexToBytes("3031300d060960864801650304020105000420");
+function pkcs1Pad(hash, emLen) {
+  const tLen = SHA256_DI.length + 32;
+  if (emLen < tLen + 11) throw new Error("Key too short");
+  const ps = emLen - tLen - 3;
+  const em = new Uint8Array(emLen);
+  em[0] = 0x00;
+  em[1] = 0x01;
+  for (let i = 0; i < ps; i++) em[2 + i] = 0xff;
+  em[2 + ps] = 0x00;
+  em.set(SHA256_DI, 3 + ps);
+  em.set(hash, 3 + ps + SHA256_DI.length);
+  return em;
 }
-function autoFillDecrypt() {
-  if(!S.aesBundle) return;
-  document.getElementById('aes-dec-bundle').value = JSON.stringify(S.aesBundle,null,2);
-  switchTab('aes-dec','aes-tabs','aes-enc-btn,aes-dec-btn');
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  SIGN PAGE — ENCRYPT SIGNED BUNDLE
-// ═══════════════════════════════════════════════════════════════
-async function encryptSignedBundle() {
-  const st = document.getElementById('sign-aes-status');
-  if (!S.lastBundle) { st.innerHTML = msg('warn','Sign a document first.'); return; }
-  const password = document.getElementById('sign-aes-pass').value.trim();
-  if (!password)  { st.innerHTML = msg('warn','Enter a password.'); return; }
-  st.innerHTML = msg('info','<span class="spin">⟳</span> Encrypting…');
-  await sleep(40);
-  try {
-    const inner  = await aesEncryptRaw(password, JSON.stringify(S.lastBundle));
-    const outer  = { encrypted: inner, algorithm: 'RSA-PSS-SHA256 + AES-256-GCM', note: 'Decrypt with password, then verify RSA signature inside' };
-    S.encBundle  = outer;
-    document.getElementById('sign-aes-bundle').textContent = JSON.stringify(outer, null, 2);
-    document.getElementById('sign-aes-output').style.display = 'block';
-    st.innerHTML = msg('ok', `✓ Signed bundle encrypted — ${inner.ciphertext.length/2} bytes`);
-  } catch(e) {
-    st.innerHTML = msg('err','✗ ' + e.message);
-  }
+function pkcs1Verify(em, hash, emLen) {
+  const ex = pkcs1Pad(hash, emLen);
+  let d = 0;
+  for (let i = 0; i < emLen; i++) d |= em[i] ^ ex[i];
+  return d === 0;
 }
 
-function copyEncBundle()   { if(S.encBundle) navigator.clipboard.writeText(JSON.stringify(S.encBundle,null,2)); }
-function downloadEncBundle() {
-  if(!S.encBundle) return;
-  download(JSON.stringify(S.encBundle,null,2),'enc-signed-'+Date.now()+'.json');
+// Minimal DER encoder helpers
+function derLen(n) {
+  return n < 0x80 ? [n] : n < 0x100 ? [0x81, n] : [0x82, (n >> 8) & 0xff, n & 0xff];
+}
+function derInt(bi) {
+  let hex = bi.toString(16);
+  if (hex.length % 2) hex = "0" + hex;
+  const b = hexToBytes(hex);
+  const bb = b[0] & 0x80 ? new Uint8Array([0, ...b]) : b;
+  return [0x02, ...derLen(bb.length), ...bb];
+}
+function rsaPubToDer(n, e) {
+  const nb = bigIntToBytes(n, 256),
+    eb = bigIntToBytes(e, 3).slice(bigIntToBytes(e, 3).findIndex((x) => x !== 0));
+  const seq = [...derInt(bytesToBigInt(nb)), ...[0x02, ...derLen(eb.length), ...eb]];
+  const inner = [0x30, ...derLen(seq.length), ...seq];
+  const alg = [
+    0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00,
+  ];
+  const bs = [0x03, ...derLen(inner.length + 1), 0x00, ...inner];
+  return new Uint8Array([0x30, ...derLen(alg.length + bs.length), ...alg, ...bs]);
+}
+function rsaPrivToDer(n, e, d, p, q) {
+  const dp = d % (p - 1n),
+    dq = d % (q - 1n),
+    qi = modInv(q, p);
+  const seq = [
+    0x02,
+    0x01,
+    0x00,
+    ...derInt(n),
+    ...derInt(e),
+    ...derInt(d),
+    ...derInt(p),
+    ...derInt(q),
+    ...derInt(dp),
+    ...derInt(dq),
+    ...derInt(qi),
+  ];
+  const inner = [0x30, ...derLen(seq.length), ...seq];
+  const alg = [
+    0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00,
+  ];
+  const os = [0x04, ...derLen(inner.length), ...inner];
+  return new Uint8Array([0x30, ...derLen(alg.length + os.length), ...alg, ...os]);
+}
+function derToPem(der, label) {
+  return (
+    `-----BEGIN ${label}-----\n` +
+    ab2b64(der.buffer || der)
+      .match(/.{1,64}/g)
+      .join("\n") +
+    `\n-----END ${label}-----`
+  );
+}
+function parsePubDer(der) {
+  function rl(d, p) {
+    if (d[p] < 0x80) return { len: d[p], next: p + 1 };
+    const nb = d[p] & 0x7f;
+    let l = 0;
+    for (let k = 0; k < nb; k++) l = (l << 8) | d[p + 1 + k];
+    return { len: l, next: p + 1 + nb };
+  }
+  function ri(d, p) {
+    p++;
+    const { len, next } = rl(d, p);
+    p = next;
+    let b = d.slice(p, p + len);
+    if (b[0] === 0) b = b.slice(1);
+    return { val: bytesToBigInt(b), next: p + len };
+  }
+  let i = 2;
+  const { next: n1 } = rl(der, i);
+  i = n1;
+  const { len: l2, next: n2 } = rl(der, i + 1);
+  i = n2 + l2 + 1;
+  i += 2;
+  const { next: n4 } = rl(der, i);
+  i = n4 + 1;
+  i++;
+  const { next: nn } = rl(der, i);
+  i = nn;
+  const { val: n, next: ni } = ri(der, i);
+  const { val: e } = ri(der, ni);
+  return { n, e };
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  VERIFY PAGE — DECRYPT + VERIFY ENCRYPTED BUNDLE
-// ═══════════════════════════════════════════════════════════════
-async function decryptAndVerify() {
-  const st       = document.getElementById('v-enc-status');
-  const password = document.getElementById('v-enc-pass').value.trim();
-  const raw      = document.getElementById('v-enc-bundle').value.trim();
-  if (!password) { st.innerHTML = msg('warn','Enter the password.'); return; }
-  if (!raw)      { st.innerHTML = msg('warn','Paste the encrypted bundle.'); return; }
-  let outer;
-  try { outer = JSON.parse(raw); } catch(e) { st.innerHTML = msg('err','Invalid JSON.'); return; }
-  const inner = outer.encrypted || outer;   // handle both {encrypted:{…}} and raw bundle
-  if (!inner.salt || !inner.iv || !inner.ciphertext || !inner.tag) {
-    st.innerHTML = msg('err','Bundle missing fields (salt, iv, ciphertext, tag).');
-    return;
-  }
-  st.innerHTML = msg('info','<span class="spin">⟳</span> Decrypting…');
-  await sleep(40);
-  let signedBundle;
-  try {
-    const plaintext = await aesDecryptRaw(password, inner);
-    signedBundle    = JSON.parse(plaintext);
-  } catch(e) {
-    st.innerHTML = msg('err','✗ Decryption failed — wrong password or tampered data.');
-    return;
-  }
-  st.innerHTML = msg('info','<span class="spin">⟳</span> Verifying RSA signature…');
-  await sleep(20);
-  await doVerify(signedBundle.document, signedBundle.signature, signedBundle.publicKey, signedBundle);
-  st.innerHTML = msg('ok','✓ Decrypted. RSA verification result shown above.');
+// RSA key generation
+function generateRsaKeyPair() {
+  const E = 65537n;
+  let p, q, n, phi;
+  do {
+    p = generatePrime(1024);
+    q = generatePrime(1024);
+    if (p === q) continue;
+    n = p * q;
+    phi = (p - 1n) * (q - 1n);
+  } while (extGcd(E, phi).g !== 1n || n.toString(2).length !== 2048);
+  const d = modInv(E, phi);
+  return { n, e: E, d, p, q };
+}
+
+// RSA sign: SHA-256 → PKCS#1v15 pad → m^d mod n
+function rsaSign(message, privKey) {
+  const hash = sha256(message);
+  const em = pkcs1Pad(hash, 256);
+  const m = bytesToBigInt(em);
+  const s = modpow(m, privKey.d, privKey.n);
+  return bigIntToBytes(s, 256);
+}
+
+// RSA verify: s^e mod n → unpad → compare hash
+function rsaVerify(message, sigBytes, pubKey) {
+  const hash = sha256(message);
+  const s = bytesToBigInt(sigBytes);
+  const m = modpow(s, pubKey.e, pubKey.n);
+  const em = bigIntToBytes(m, 256);
+  return pkcs1Verify(em, hash, 256);
 }
 
 // ═══════════════════════════════════════════════════════════════
 //  KEY GENERATION
 // ═══════════════════════════════════════════════════════════════
 async function generateKeys() {
-  const name = document.getElementById('user-name').value.trim() || 'User';
-  const st   = document.getElementById('keygen-status');
-  st.innerHTML = msg('info','<span class="spin">⟳</span> Generating RSA-2048 key pair… (1–2s)');
-  await sleep(50);
+  const name = document.getElementById("user-name").value.trim() || "User";
+  const st = document.getElementById("keygen-status");
+  st.innerHTML = msg(
+    "info",
+    '<span class="spin">⟳</span> Generating RSA-2048… finding 1024-bit primes via Miller-Rabin (20–60s)',
+  );
+  await sleep(80);
   try {
-    const pair = await crypto.subtle.generateKey(
-      { name:'RSA-PSS', modulusLength:2048, publicExponent:new Uint8Array([1,0,1]), hash:'SHA-256' },
-      true, ['sign','verify']
-    );
-    const privDer = await crypto.subtle.exportKey('pkcs8', pair.privateKey);
-    const pubDer  = await crypto.subtle.exportKey('spki',  pair.publicKey);
-    const privPem = derToPem(privDer,'PRIVATE KEY');
-    const pubPem  = derToPem(pubDer, 'PUBLIC KEY');
-    S.keys.push({ name, privKey:pair.privateKey, pubKey:pair.publicKey, privPem, pubPem, created:new Date().toLocaleTimeString() });
-    document.getElementById('priv-display').textContent = privPem;
-    document.getElementById('pub-display').textContent  = pubPem;
-    document.getElementById('key-display-card').style.display = 'block';
-    document.getElementById('keystore-wrapper').style.display = 'block';
+    const kd = await new Promise((res, rej) => {
+      setTimeout(() => {
+        try {
+          res(generateRsaKeyPair());
+        } catch (e) {
+          rej(e);
+        }
+      }, 10);
+    });
+    const { n, e, d, p, q } = kd;
+    const pubDer = rsaPubToDer(n, e),
+      privDer = rsaPrivToDer(n, e, d, p, q);
+    const pubPem = derToPem(pubDer, "PUBLIC KEY"),
+      privPem = derToPem(privDer, "PRIVATE KEY");
+    S.keys.push({
+      name,
+      pub: { n, e },
+      priv: { n, d },
+      pubPem,
+      privPem,
+      created: new Date().toLocaleTimeString(),
+    });
+    document.getElementById("priv-display").textContent = privPem;
+    document.getElementById("pub-display").textContent = pubPem;
+    document.getElementById("key-display-card").style.display = "block";
+    document.getElementById("keystore-wrapper").style.display = "block";
     renderKeystore();
     refreshKeyPicker();
-    document.getElementById('key-count').textContent = S.keys.length;
-    st.innerHTML = msg('ok', `✓ Keys generated for <strong>${name}</strong>`);
-  } catch(e) {
-    st.innerHTML = msg('err','✗ ' + e.message);
+    document.getElementById("key-count").textContent = S.keys.length;
+    st.innerHTML = msg("ok", `✓ Keys generated for <strong>${name}</strong> — pure JS RSA-2048`);
+  } catch (e) {
+    st.innerHTML = msg("err", "✗ " + e.message);
   }
 }
-
 function renderKeystore() {
-  document.getElementById('keystore-list').innerHTML = S.keys.map(k=>`
-    <div class="signer-row">
-      <div class="signer-left">
-        <div class="avatar">${k.name.slice(0,2).toUpperCase()}</div>
-        <div><div class="signer-name">${k.name}</div><div class="signer-time">Generated ${k.created}</div></div>
-      </div>
-      <span class="badge badge-info">RSA-2048</span>
-    </div>`).join('');
+  document.getElementById("keystore-list").innerHTML = S.keys
+    .map(
+      (k) =>
+        `<div class="signer-row"><div class="signer-left"><div class="avatar">${k.name.slice(0, 2).toUpperCase()}</div><div><div class="signer-name">${k.name}</div><div class="signer-time">Generated ${k.created}</div></div></div><span class="badge badge-info">RSA-2048</span></div>`,
+    )
+    .join("");
 }
-
 function refreshKeyPicker() {
-  const sel = document.getElementById('key-picker');
-  sel.innerHTML = S.keys.map((k,i)=>`<option value="${i}">${k.name} (key #${i+1})</option>`).join('');
+  const sel = document.getElementById("key-picker");
+  sel.innerHTML = S.keys
+    .map((k, i) => `<option value="${i}">${k.name} (key #${i + 1})</option>`)
+    .join("");
   if (S.keys.length > 0) {
-    document.getElementById('no-keys-warn').style.display  = 'none';
-    document.getElementById('key-selector').style.display  = 'block';
-    document.getElementById('sign-btn').disabled = false;
+    document.getElementById("no-keys-warn").style.display = "none";
+    document.getElementById("key-selector").style.display = "block";
+    document.getElementById("sign-btn").disabled = false;
   }
 }
 
@@ -1305,245 +1729,612 @@ function refreshKeyPicker() {
 //  SIGNING
 // ═══════════════════════════════════════════════════════════════
 async function signDocument() {
-  const idx = parseInt(document.getElementById('key-picker').value)||0;
+  const idx = parseInt(document.getElementById("key-picker").value) || 0;
   const key = S.keys[idx];
   if (!key) return;
-  const doc = document.getElementById('stab-file').style.display!=='none' ? S.fileContent : document.getElementById('sign-doc').value.trim();
-  const st  = document.getElementById('sign-status');
-  if (!doc) { st.innerHTML = msg('warn','Enter a document first.'); return; }
-  st.innerHTML = msg('info','<span class="spin">⟳</span> Hashing + signing…');
+  const doc =
+    document.getElementById("stab-file").style.display !== "none"
+      ? S.fileContent
+      : document.getElementById("sign-doc").value.trim();
+  const st = document.getElementById("sign-status");
+  if (!doc) {
+    st.innerHTML = msg("warn", "Enter a document first.");
+    return;
+  }
+  st.innerHTML = msg("info", '<span class="spin">⟳</span> SHA-256 hashing + RSA signing…');
   await sleep(30);
   try {
-    const docBytes = new TextEncoder().encode(doc);
-    const hashBuf  = await sha256(docBytes);
-    const sigBuf   = await crypto.subtle.sign({name:'RSA-PSS',saltLength:32}, key.privKey, docBytes);
-    document.getElementById('out-hash').textContent = bytesToHex(hashBuf);
-    document.getElementById('out-sig').textContent  = bytesToHex(sigBuf).slice(0,80)+'…';
-    renderHashVis(new Uint8Array(hashBuf),'hash-color-vis');
-    S.lastBundle = { document:doc, signature:bytesToHex(sigBuf), publicKey:key.pubPem, signer:key.name, timestamp:new Date().toISOString(), algorithm:'RSA-PSS-SHA256', keySize:2048 };
-    document.getElementById('sig-output').style.display = 'block';
-    st.innerHTML = msg('ok', `✓ Signed by <strong>${key.name}</strong>`);
-  } catch(e) { st.innerHTML = msg('err','✗ '+e.message); }
+    const docB = strToBytes(doc);
+    const hashB = sha256(docB);
+    const sigB = rsaSign(docB, key.priv);
+    document.getElementById("out-hash").textContent = bytesToHex(hashB);
+    document.getElementById("out-sig").textContent = bytesToHex(sigB).slice(0, 80) + "…";
+    renderHashVis(hashB, "hash-color-vis");
+    S.lastBundle = {
+      document: doc,
+      signature: bytesToHex(sigB),
+      publicKey: key.pubPem,
+      signer: key.name,
+      timestamp: new Date().toISOString(),
+      algorithm: "RSA-PKCS1v15-SHA256",
+      keySize: 2048,
+    };
+    document.getElementById("sig-output").style.display = "block";
+    st.innerHTML = msg("ok", `✓ Signed by <strong>${key.name}</strong>`);
+  } catch (e) {
+    st.innerHTML = msg("err", "✗ " + e.message);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
 //  VERIFICATION
 // ═══════════════════════════════════════════════════════════════
-
-// Called on every keystroke in the textarea — detects bundle type
-// and shows/hides the password field automatically
 function detectBundleType() {
-  const raw = document.getElementById('verify-bundle').value.trim();
-  const hint = document.getElementById('bundle-type-hint');
-  const passSection = document.getElementById('enc-pass-section');
-  if (!raw) { hint.textContent = ''; passSection.style.display = 'none'; return; }
+  const raw = document.getElementById("verify-bundle").value.trim();
+  const hint = document.getElementById("bundle-type-hint"),
+    ps = document.getElementById("enc-pass-section");
+  if (!raw) {
+    hint.textContent = "";
+    ps.style.display = "none";
+    return;
+  }
   try {
     const b = JSON.parse(raw);
     if (b.encrypted && b.encrypted.ciphertext) {
-      // encrypted bundle — show password field
-      passSection.style.display = 'block';
-      hint.textContent = '✓ Encrypted bundle detected (RSA-PSS + AES-256-GCM)';
-      hint.style.color = 'var(--teal)';
+      ps.style.display = "block";
+      hint.textContent = "✓ Encrypted bundle — enter password";
+      hint.style.color = "var(--teal)";
     } else if (b.document && b.signature && b.publicKey) {
-      // plain signed bundle
-      passSection.style.display = 'none';
-      hint.textContent = '✓ Plain signed bundle detected (RSA-PSS-SHA256)';
-      hint.style.color = 'var(--green)';
+      ps.style.display = "none";
+      hint.textContent = "✓ Plain signed bundle";
+      hint.style.color = "var(--green)";
     } else {
-      passSection.style.display = 'none';
-      hint.textContent = '⚠ Unrecognised format — expected document+signature+publicKey or encrypted bundle';
-      hint.style.color = 'var(--orange)';
+      ps.style.display = "none";
+      hint.textContent = "⚠ Unrecognised format";
+      hint.style.color = "var(--orange)";
     }
-  } catch(e) {
-    passSection.style.display = 'none';
-    hint.textContent = 'Not valid JSON yet…';
-    hint.style.color = 'var(--text3)';
+  } catch (e) {
+    ps.style.display = "none";
+    hint.textContent = "Not valid JSON yet…";
+    hint.style.color = "var(--text3)";
   }
 }
-
-// Smart verifyBundle — handles BOTH plain and encrypted automatically
 async function verifyBundle() {
-  const raw = document.getElementById('verify-bundle').value.trim();
+  const raw = document.getElementById("verify-bundle").value.trim();
   let b;
-  try { b = JSON.parse(raw); } catch(e) { showVerifyResult(false, 'Invalid JSON — check the bundle', null); return; }
-
-  // ── CASE 1: encrypted bundle ──────────────────────────────────
-  // Structure: { encrypted: { salt, iv, ciphertext, tag }, algorithm, … }
+  try {
+    b = JSON.parse(raw);
+  } catch (e) {
+    showVerifyResult(false, "Invalid JSON", null);
+    return;
+  }
   if (b.encrypted && b.encrypted.ciphertext) {
-    const password = document.getElementById('auto-dec-pass').value.trim();
-    if (!password) {
-      // show the password field and stop
-      document.getElementById('enc-pass-section').style.display = 'block';
-      document.getElementById('auto-dec-pass').focus();
-      showVerifyResult(false, 'This is an encrypted bundle — enter the password above then click Verify again', null);
+    const pw = document.getElementById("auto-dec-pass").value.trim();
+    if (!pw) {
+      document.getElementById("enc-pass-section").style.display = "block";
+      document.getElementById("auto-dec-pass").focus();
+      showVerifyResult(false, "Enter password above then click Verify again", null);
       return;
     }
-    // step 1: AES decrypt
     let inner;
     try {
-      const plaintext = await aesDecryptRaw(password, b.encrypted);
-      inner = JSON.parse(plaintext);
-    } catch(e) {
-      showVerifyResult(false, '✗ Decryption failed — wrong password or tampered ciphertext', null);
+      inner = JSON.parse(aesDecryptRaw(pw, b.encrypted));
+    } catch (e) {
+      showVerifyResult(false, "✗ Decryption failed — wrong password or tampered ciphertext", null);
       return;
     }
-    // step 2: RSA verify the decrypted bundle
-    await doVerify(inner.document, inner.signature, inner.publicKey, inner);
+    doVerify(inner.document, inner.signature, inner.publicKey, inner);
     return;
   }
-
-  // ── CASE 2: plain signed bundle ───────────────────────────────
-  // Structure: { document, signature, publicKey, signer, … }
   if (b.document && b.signature && b.publicKey) {
-    await doVerify(b.document, b.signature, b.publicKey, b);
+    doVerify(b.document, b.signature, b.publicKey, b);
     return;
   }
-
-  // ── CASE 3: unrecognised ──────────────────────────────────────
-  showVerifyResult(false, 'Unrecognised bundle format. Expected: document + signature + publicKey (plain) or encrypted: {salt,iv,ciphertext,tag} (encrypted)', null);
+  showVerifyResult(false, "Unrecognised bundle format", null);
 }
-
-async function verifyManual() {
-  await doVerify(document.getElementById('v-doc').value, document.getElementById('v-sig').value.trim(), document.getElementById('v-pub').value.trim(), null);
+function verifyManual() {
+  doVerify(
+    document.getElementById("v-doc").value,
+    document.getElementById("v-sig").value.trim(),
+    document.getElementById("v-pub").value.trim(),
+    null,
+  );
 }
-async function verifyManual() {
-  await doVerify(document.getElementById('v-doc').value, document.getElementById('v-sig').value.trim(), document.getElementById('v-pub').value.trim(), null);
-}
-async function doVerify(doc, sigHex, pubPem, meta) {
+function doVerify(doc, sigHex, pubPem, meta) {
   try {
-    const pubKey   = await importPublicKey(pubPem);
-    const docBytes = new TextEncoder().encode(doc);
-    const valid    = await crypto.subtle.verify({name:'RSA-PSS',saltLength:32}, pubKey, hexToBytes(sigHex), docBytes);
-    const hashHex  = bytesToHex(await sha256(docBytes));
-    showVerifyResult(valid, null, {hashHex, meta});
-  } catch(e) { showVerifyResult(false, e.message, null); }
+    const der = new Uint8Array(b642ab(pubPem.replace(/-----[^-]+-----/g, "").replace(/\s/g, "")));
+    const pub = parsePubDer(der);
+    const docB = strToBytes(doc);
+    const valid = rsaVerify(docB, hexToBytes(sigHex), pub);
+    const hash = bytesToHex(sha256(docB));
+    showVerifyResult(valid, null, { hashHex: hash, meta });
+  } catch (e) {
+    showVerifyResult(false, e.message, null);
+  }
 }
 function showVerifyResult(valid, err, data) {
-  const el = document.getElementById('verify-result');
-  el.style.display = 'block';
+  const el = document.getElementById("verify-result");
+  el.style.display = "block";
   let html = valid
     ? `<div class="verify-big ok"><div class="verify-icon">✓</div><div><div class="verify-title">Signature VALID</div><div class="verify-subtitle">Document is authentic and untampered</div></div></div>`
-    : `<div class="verify-big err"><div class="verify-icon">✗</div><div><div class="verify-title">Signature INVALID</div><div class="verify-subtitle">${err||'Document tampered or wrong key used'}</div></div></div>`;
+    : `<div class="verify-big err"><div class="verify-icon">✗</div><div><div class="verify-title">Signature INVALID</div><div class="verify-subtitle">${err || "Document tampered or wrong key used"}</div></div></div>`;
   if (data) {
-    html += `<div class="card"><div class="info-table">`;
-    html += `<div class="info-row"><span class="info-key">SHA-256 hash</span><span class="info-val">${data.hashHex?data.hashHex.slice(0,40)+'…':'—'}</span></div>`;
+    html += `<div class="card"><div class="info-table"><div class="info-row"><span class="info-key">SHA-256 hash</span><span class="info-val">${data.hashHex ? data.hashHex.slice(0, 40) + "…" : "—"}</span></div>`;
     if (data.meta) {
-      html += `<div class="info-row"><span class="info-key">Signer</span><span class="info-val">${data.meta.signer||'—'}</span></div>`;
-      html += `<div class="info-row"><span class="info-key">Timestamp</span><span class="info-val">${data.meta.timestamp||'—'}</span></div>`;
-      html += `<div class="info-row"><span class="info-key">Algorithm</span><span class="info-val">${data.meta.algorithm||'—'}</span></div>`;
-      html += `<div class="info-row"><span class="info-key">Key size</span><span class="info-val">${data.meta.keySize||2048} bits</span></div>`;
+      html += `<div class="info-row"><span class="info-key">Signer</span><span class="info-val">${data.meta.signer || "—"}</span></div><div class="info-row"><span class="info-key">Timestamp</span><span class="info-val">${data.meta.timestamp || "—"}</span></div><div class="info-row"><span class="info-key">Algorithm</span><span class="info-val">${data.meta.algorithm || "—"}</span></div><div class="info-row"><span class="info-key">Key size</span><span class="info-val">${data.meta.keySize || 2048} bits</span></div>`;
     }
     html += `</div></div>`;
   }
-  document.getElementById('verify-result-inner').innerHTML = html;
+  document.getElementById("verify-result-inner").innerHTML = html;
 }
 
 // ═══════════════════════════════════════════════════════════════
 //  TAMPER TEST
 // ═══════════════════════════════════════════════════════════════
 function loadTamperDoc() {
-  if(!S.lastBundle){ document.getElementById('tamper-status').innerHTML=msg('warn','Sign a document first.'); return; }
+  if (!S.lastBundle) {
+    document.getElementById("tamper-status").innerHTML = msg("warn", "Sign a document first.");
+    return;
+  }
   S.tamperBundle = JSON.parse(JSON.stringify(S.lastBundle));
-  document.getElementById('tamper-preview').innerHTML = `<div class="mono-block">${esc(S.tamperBundle.document)}</div>`;
-  document.getElementById('tamper-btn').disabled = false;
-  document.getElementById('tamper-status').innerHTML = msg('info','Document loaded. Now tamper it.');
+  document.getElementById("tamper-preview").innerHTML =
+    `<div class="mono-block">${esc(S.tamperBundle.document)}</div>`;
+  document.getElementById("tamper-btn").disabled = false;
+  document.getElementById("tamper-status").innerHTML = msg(
+    "info",
+    "Document loaded. Now tamper it.",
+  );
 }
 function tamperDoc() {
-  if(!S.tamperBundle) return;
-  S.tamperBundle.document = S.tamperBundle.document.replace(/\d+/, m=>String(parseInt(m)+99999));
-  if(!S.tamperBundle.document.includes('99999')) S.tamperBundle.document += ' [TAMPERED]';
-  document.getElementById('tamper-preview').innerHTML = `<div class="mono-block" style="border-color:var(--red)">${esc(S.tamperBundle.document)}</div>`;
-  document.getElementById('tamper-verify-btn').disabled = false;
-  document.getElementById('tamper-status').innerHTML = msg('warn','⚠ Document tampered. Verify to see it fail.');
+  if (!S.tamperBundle) return;
+  S.tamperBundle.document = S.tamperBundle.document.replace(/\d+/, (m) =>
+    String(parseInt(m) + 99999),
+  );
+  if (!S.tamperBundle.document.includes("99999")) S.tamperBundle.document += " [TAMPERED]";
+  document.getElementById("tamper-preview").innerHTML =
+    `<div class="mono-block" style="border-color:var(--red)">${esc(S.tamperBundle.document)}</div>`;
+  document.getElementById("tamper-verify-btn").disabled = false;
+  document.getElementById("tamper-status").innerHTML = msg(
+    "warn",
+    "⚠ Document tampered. Verify to see it fail.",
+  );
 }
-async function verifyTampered() {
-  if(!S.tamperBundle) return;
-  await doVerify(S.tamperBundle.document, S.tamperBundle.signature, S.tamperBundle.publicKey, null);
-  nav('verify');
+function verifyTampered() {
+  if (!S.tamperBundle) return;
+  doVerify(S.tamperBundle.document, S.tamperBundle.signature, S.tamperBundle.publicKey, null);
+  nav("verify");
 }
 
 // ═══════════════════════════════════════════════════════════════
 //  MULTI-SIGN
 // ═══════════════════════════════════════════════════════════════
-async function addMultiSign() {
-  if(!S.keys.length){ document.getElementById('multi-status').innerHTML=msg('warn','Generate keys first.'); return; }
-  const key = S.keys[S.multiSigs.length % S.keys.length];
-  const doc = document.getElementById('multi-doc').value;
-  const sig = await crypto.subtle.sign({name:'RSA-PSS',saltLength:32}, key.privKey, new TextEncoder().encode(doc));
-  S.multiSigs.push({signer:key.name, sigHex:bytesToHex(sig), pubPem:key.pubPem, time:new Date().toLocaleTimeString()});
-  renderMultiList();
-  document.getElementById('multi-status').innerHTML = msg('ok','✓ '+key.name+' signed.');
-}
-async function verifyAllMulti() {
-  if(!S.multiSigs.length){ document.getElementById('multi-status').innerHTML=msg('warn','No signatures yet.'); return; }
-  const doc = new TextEncoder().encode(document.getElementById('multi-doc').value);
-  let all = true;
-  for(const s of S.multiSigs){
-    const pk = await importPublicKey(s.pubPem);
-    if(!await crypto.subtle.verify({name:'RSA-PSS',saltLength:32}, pk, hexToBytes(s.sigHex), doc)) all=false;
+function addMultiSign() {
+  if (!S.keys.length) {
+    document.getElementById("multi-status").innerHTML = msg("warn", "Generate keys first.");
+    return;
   }
-  document.getElementById('multi-status').innerHTML = all
-    ? msg('ok',`✓ All ${S.multiSigs.length} signatures valid.`)
-    : msg('err','✗ One or more invalid.');
+  const key = S.keys[S.multiSigs.length % S.keys.length];
+  const doc = document.getElementById("multi-doc").value;
+  const sig = rsaSign(strToBytes(doc), key.priv);
+  S.multiSigs.push({
+    signer: key.name,
+    sigHex: bytesToHex(sig),
+    pubPem: key.pubPem,
+    time: new Date().toLocaleTimeString(),
+  });
+  renderMultiList();
+  document.getElementById("multi-status").innerHTML = msg("ok", "✓ " + key.name + " signed.");
 }
-function renderMultiList(){
-  const el=document.getElementById('multi-signer-list');
-  if(!S.multiSigs.length){ el.innerHTML=`<div style="font-size:13px;color:var(--text3);font-family:var(--mono)">No signatures yet.</div>`; return; }
-  el.innerHTML=S.multiSigs.map(s=>`
-    <div class="signer-row">
-      <div class="signer-left">
-        <div class="avatar">${s.signer.slice(0,2).toUpperCase()}</div>
-        <div><div class="signer-name">${s.signer}</div><div class="signer-time">Signed at ${s.time}</div></div>
-      </div>
-      <span class="badge badge-ok">✓ Signed</span>
-    </div>`).join('');
+function verifyAllMulti() {
+  if (!S.multiSigs.length) {
+    document.getElementById("multi-status").innerHTML = msg("warn", "No signatures yet.");
+    return;
+  }
+  const doc = strToBytes(document.getElementById("multi-doc").value);
+  let all = true;
+  for (const s of S.multiSigs) {
+    const pub = parsePubDer(
+      new Uint8Array(b642ab(s.pubPem.replace(/-----[^-]+-----/g, "").replace(/\s/g, ""))),
+    );
+    if (!rsaVerify(doc, hexToBytes(s.sigHex), pub)) all = false;
+  }
+  document.getElementById("multi-status").innerHTML = all
+    ? msg("ok", `✓ All ${S.multiSigs.length} signatures valid.`)
+    : msg("err", "✗ One or more invalid.");
 }
-function resetMulti(){ S.multiSigs=[]; renderMultiList(); document.getElementById('multi-status').innerHTML=''; }
+function renderMultiList() {
+  const el = document.getElementById("multi-signer-list");
+  if (!S.multiSigs.length) {
+    el.innerHTML = `<div style="font-size:13px;color:var(--text3);font-family:var(--mono)">No signatures yet.</div>`;
+    return;
+  }
+  el.innerHTML = S.multiSigs
+    .map(
+      (s) =>
+        `<div class="signer-row"><div class="signer-left"><div class="avatar">${s.signer.slice(0, 2).toUpperCase()}</div><div><div class="signer-name">${s.signer}</div><div class="signer-time">Signed at ${s.time}</div></div></div><span class="badge badge-ok">✓ Signed</span></div>`,
+    )
+    .join("");
+}
+function resetMulti() {
+  S.multiSigs = [];
+  renderMultiList();
+  document.getElementById("multi-status").innerHTML = "";
+}
 
 // ═══════════════════════════════════════════════════════════════
-//  LIVE SHA-256
+//  AES PAGE
 // ═══════════════════════════════════════════════════════════════
-async function updateLiveHash(){
-  const txt=document.getElementById('live-input').value;
-  if(!txt){ document.getElementById('live-hash-out').textContent='—'; document.getElementById('live-hash-vis').innerHTML=''; return; }
-  const buf=await sha256(new TextEncoder().encode(txt));
-  document.getElementById('live-hash-out').textContent=bytesToHex(buf);
-  renderHashVis(new Uint8Array(buf),'live-hash-vis');
+async function aesEncrypt() {
+  const pw = document.getElementById("aes-enc-pass").value.trim(),
+    pt = document.getElementById("aes-plaintext").value;
+  const st = document.getElementById("aes-enc-status");
+  if (!pw) {
+    st.innerHTML = msg("warn", "Enter a password.");
+    return;
+  }
+  if (!pt) {
+    st.innerHTML = msg("warn", "Enter a message.");
+    return;
+  }
+  st.innerHTML = msg(
+    "info",
+    '<span class="spin">⟳</span> PBKDF2 (100k rounds) + AES-256-GCM… (15–40s)',
+  );
+  await sleep(40);
+  try {
+    const bundle = await new Promise((res, rej) => {
+      setTimeout(() => {
+        try {
+          res(aesEncryptRaw(pw, pt));
+        } catch (e) {
+          rej(e);
+        }
+      }, 10);
+    });
+    S.aesBundle = bundle;
+    document.getElementById("aes-out-salt").textContent = bundle.salt;
+    document.getElementById("aes-out-iv").textContent = bundle.iv;
+    document.getElementById("aes-out-cipher").textContent = bundle.ciphertext;
+    document.getElementById("aes-out-tag").textContent = bundle.tag;
+    document.getElementById("aes-cipher-size").textContent =
+      bundle.ciphertext.length / 2 + " bytes";
+    document.getElementById("aes-bundle-out").textContent = JSON.stringify(bundle, null, 2);
+    document.getElementById("aes-enc-output").style.display = "block";
+    st.innerHTML = msg("ok", `✓ Pure JS AES-256-GCM — ${bundle.ciphertext.length / 2} bytes`);
+  } catch (e) {
+    st.innerHTML = msg("err", "✗ " + e.message);
+  }
+}
+async function aesDecrypt() {
+  const pw = document.getElementById("aes-dec-pass").value.trim(),
+    raw = document.getElementById("aes-dec-bundle").value.trim();
+  const st = document.getElementById("aes-dec-status");
+  if (!pw) {
+    st.innerHTML = msg("warn", "Enter the password.");
+    return;
+  }
+  if (!raw) {
+    st.innerHTML = msg("warn", "Paste the bundle.");
+    return;
+  }
+  let bundle;
+  try {
+    bundle = JSON.parse(raw);
+  } catch (e) {
+    st.innerHTML = msg("err", "Invalid JSON.");
+    return;
+  }
+  if (!bundle.salt || !bundle.iv || !bundle.ciphertext || !bundle.tag) {
+    st.innerHTML = msg("err", "Bundle missing: salt,iv,ciphertext,tag.");
+    return;
+  }
+  st.innerHTML = msg(
+    "info",
+    '<span class="spin">⟳</span> PBKDF2 + AES-256-GCM decrypting… (15–40s)',
+  );
+  await sleep(40);
+  try {
+    const pt = await new Promise((res, rej) => {
+      setTimeout(() => {
+        try {
+          res(aesDecryptRaw(pw, bundle));
+        } catch (e) {
+          rej(e);
+        }
+      }, 10);
+    });
+    document.getElementById("aes-plaintext-out").textContent = pt;
+    document.getElementById("aes-dec-output").style.display = "block";
+    st.innerHTML = msg("ok", "✓ Decrypted successfully");
+  } catch (e) {
+    document.getElementById("aes-dec-output").style.display = "none";
+    st.innerHTML = msg("err", "✗ " + e.message);
+  }
+}
+function copyAesBundle() {
+  if (S.aesBundle) navigator.clipboard.writeText(JSON.stringify(S.aesBundle, null, 2));
+}
+function downloadAesBundle() {
+  if (S.aesBundle) download(JSON.stringify(S.aesBundle, null, 2), "aes-" + Date.now() + ".json");
+}
+function autoFillDecrypt() {
+  if (S.aesBundle) {
+    document.getElementById("aes-dec-bundle").value = JSON.stringify(S.aesBundle, null, 2);
+    switchTab("aes-dec", "aes-tabs", "aes-enc-btn,aes-dec-btn");
+  }
+}
+
+async function encryptSignedBundle() {
+  const st = document.getElementById("sign-aes-status");
+  if (!S.lastBundle) {
+    st.innerHTML = msg("warn", "Sign a document first.");
+    return;
+  }
+  const pw = document.getElementById("sign-aes-pass").value.trim();
+  if (!pw) {
+    st.innerHTML = msg("warn", "Enter a password.");
+    return;
+  }
+  st.innerHTML = msg("info", '<span class="spin">⟳</span> PBKDF2 + AES-256-GCM… (15–40s)');
+  await sleep(40);
+  try {
+    const inner = await new Promise((res, rej) => {
+      setTimeout(() => {
+        try {
+          res(aesEncryptRaw(pw, JSON.stringify(S.lastBundle)));
+        } catch (e) {
+          rej(e);
+        }
+      }, 10);
+    });
+    const outer = {
+      encrypted: inner,
+      algorithm: "RSA-SHA256 + AES-256-GCM",
+      note: "Decrypt with password, then verify RSA signature inside",
+    };
+    S.encBundle = outer;
+    document.getElementById("sign-aes-bundle").textContent = JSON.stringify(outer, null, 2);
+    document.getElementById("sign-aes-output").style.display = "block";
+    st.innerHTML = msg("ok", `✓ Encrypted — ${inner.ciphertext.length / 2} bytes`);
+  } catch (e) {
+    st.innerHTML = msg("err", "✗ " + e.message);
+  }
+}
+function copyEncBundle() {
+  if (S.encBundle) navigator.clipboard.writeText(JSON.stringify(S.encBundle, null, 2));
+}
+function downloadEncBundle() {
+  if (S.encBundle)
+    download(JSON.stringify(S.encBundle, null, 2), "enc-signed-" + Date.now() + ".json");
+}
+
+async function decryptAndVerify() {
+  const st = document.getElementById("v-enc-status");
+  const pw = document.getElementById("v-enc-pass").value.trim(),
+    raw = document.getElementById("v-enc-bundle").value.trim();
+  if (!pw) {
+    st.innerHTML = msg("warn", "Enter the password.");
+    return;
+  }
+  if (!raw) {
+    st.innerHTML = msg("warn", "Paste the bundle.");
+    return;
+  }
+  let outer;
+  try {
+    outer = JSON.parse(raw);
+  } catch (e) {
+    st.innerHTML = msg("err", "Invalid JSON.");
+    return;
+  }
+  const inner = outer.encrypted || outer;
+  if (!inner.salt || !inner.iv || !inner.ciphertext || !inner.tag) {
+    st.innerHTML = msg("err", "Bundle missing fields.");
+    return;
+  }
+  st.innerHTML = msg("info", '<span class="spin">⟳</span> PBKDF2 + AES decrypting… (15–40s)');
+  await sleep(40);
+  let sb;
+  try {
+    const pt = await new Promise((res, rej) => {
+      setTimeout(() => {
+        try {
+          res(aesDecryptRaw(pw, inner));
+        } catch (e) {
+          rej(e);
+        }
+      }, 10);
+    });
+    sb = JSON.parse(pt);
+  } catch (e) {
+    st.innerHTML = msg("err", "✗ Decryption failed.");
+    return;
+  }
+  st.innerHTML = msg("info", '<span class="spin">⟳</span> Verifying RSA signature…');
+  await sleep(20);
+  doVerify(sb.document, sb.signature, sb.publicKey, sb);
+  st.innerHTML = msg("ok", "✓ Decrypted. RSA verification shown above.");
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  LIVE DEMOS (learn page)
+// ═══════════════════════════════════════════════════════════════
+function updateLiveHash() {
+  const txt = document.getElementById("live-input").value;
+  if (!txt) {
+    document.getElementById("live-hash-out").textContent = "—";
+    document.getElementById("live-hash-vis").innerHTML = "";
+    return;
+  }
+  const h = sha256(strToBytes(txt));
+  document.getElementById("live-hash-out").textContent = bytesToHex(h);
+  renderHashVis(h, "live-hash-vis");
+}
+function updateAvalanche() {
+  const a = document.getElementById("av-a").value,
+    b = document.getElementById("av-b").value;
+  if (!a || !b) return;
+  const ha = sha256(strToBytes(a)),
+    hb = sha256(strToBytes(b));
+  document.getElementById("av-hash-a").textContent = bytesToHex(ha);
+  document.getElementById("av-hash-b").textContent = bytesToHex(hb);
+  let diffBits = 0;
+  const dv = new Uint8Array(32);
+  for (let i = 0; i < 32; i++) {
+    dv[i] = ha[i] ^ hb[i];
+    let x = ha[i] ^ hb[i];
+    while (x) {
+      diffBits += x & 1;
+      x >>= 1;
+    }
+  }
+  document.getElementById("av-diff").textContent =
+    `${diffBits}/256 bits differ (${((diffBits / 256) * 100).toFixed(1)}%) — ideal avalanche ≈ 50%`;
+  const el = document.getElementById("av-vis-diff");
+  el.innerHTML = "";
+  for (let i = 0; i < 32; i++) {
+    const d = document.createElement("div");
+    d.className = "hash-byte";
+    d.style.background = ha[i] === hb[i] ? "var(--green)" : "var(--red)";
+    el.appendChild(d);
+  }
+}
+async function updateAesDemo(run = false) {
+  if (!run) return;
+  const plain = document.getElementById("aes-demo-plain").value,
+    pass = document.getElementById("aes-demo-pass").value;
+  const el = document.getElementById("aes-demo-out");
+  if (!plain || !pass) {
+    el.textContent = "Enter plaintext and password.";
+    return;
+  }
+  el.textContent = "Running PBKDF2 + AES-256-GCM… (15–40s)";
+  await sleep(20);
+  try {
+    const r = await new Promise((res, rej) => {
+      setTimeout(() => {
+        try {
+          res(aesEncryptRaw(pass, plain));
+        } catch (e) {
+          rej(e);
+        }
+      }, 10);
+    });
+    el.textContent = `PBKDF2 salt:  ${r.salt}\nAES-GCM IV:   ${r.iv}\nCiphertext:   ${r.ciphertext}\nAuth tag:     ${r.tag}\n\nPlaintext:  ${plain.length} bytes\nCiphertext: ${r.ciphertext.length / 2} bytes\nKDF:        PBKDF2-SHA256 × 100,000`;
+  } catch (e) {
+    el.textContent = "Error: " + e.message;
+  }
+}
+function calcRSA() {
+  const p = BigInt(document.getElementById("rsa-p").value || 61),
+    q = BigInt(document.getElementById("rsa-q").value || 53);
+  const e = BigInt(document.getElementById("rsa-e").value || 17),
+    M = BigInt(document.getElementById("rsa-m").value || 65);
+  const el = document.getElementById("rsa-calc-out");
+  try {
+    if (!isPrime(p)) {
+      el.textContent = "p is not prime";
+      return;
+    }
+    if (!isPrime(q)) {
+      el.textContent = "q is not prime";
+      return;
+    }
+    const n = p * q,
+      phi = (p - 1n) * (q - 1n);
+    if (extGcd(e, phi).g !== 1n) {
+      el.textContent = `gcd(e=${e},φ(n)=${phi})≠1 — e not coprime with φ(n)`;
+      return;
+    }
+    if (M >= n) {
+      el.textContent = `M must be < n (${n})`;
+      return;
+    }
+    const d = modInv(e, phi),
+      C = modpow(M, d, n),
+      R = modpow(C, e, n);
+    el.textContent = `n = ${p}×${q} = ${n}\nφ(n) = ${p - 1n}×${q - 1n} = ${phi}\nPublic key:  (n=${n}, e=${e})\nPrivate key: d = ${d}\nVerify:      d×e mod φ(n) = ${(d * e) % phi} ✓\n\nSIGN:   C = M^d mod n = ${M}^${d} mod ${n} = ${C}\nVERIFY: R = C^e mod n = ${C}^${e} mod ${n} = ${R}\nResult: R ${R === M ? "=== M ✓ VALID" : "!== M ✗ INVALID"}`;
+  } catch (e) {
+    el.textContent = "Error: " + e.message;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
 //  UTILITIES
 // ═══════════════════════════════════════════════════════════════
-function renderHashVis(bytes,id){
-  const el=document.getElementById(id); el.innerHTML='';
-  bytes.forEach(b=>{ const d=document.createElement('div'); d.className='hash-byte'; d.style.background=`hsl(${Math.round(b/255*360)},60%,50%)`; el.appendChild(d); });
+function renderHashVis(bytes, id) {
+  const el = document.getElementById(id);
+  el.innerHTML = "";
+  (bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)).forEach((b) => {
+    const d = document.createElement("div");
+    d.className = "hash-byte";
+    d.style.background = `hsl(${Math.round((b / 255) * 360)},60%,50%)`;
+    el.appendChild(d);
+  });
 }
-function exportBundle(){ if(S.lastBundle) download(JSON.stringify(S.lastBundle,null,2),'signed-'+Date.now()+'.json'); }
-function copyBundle(){ if(S.lastBundle) navigator.clipboard.writeText(JSON.stringify(S.lastBundle,null,2)); }
-function copyText(id){ navigator.clipboard.writeText(document.getElementById(id).textContent); }
-function download(text,name){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type:'application/json'})); a.download=name; a.click(); }
-function loadFile(){ const f=document.getElementById('file-input').files[0]; if(!f) return; const r=new FileReader(); r.onload=e=>{S.fileContent=e.target.result; document.getElementById('file-info').textContent=`✓ ${f.name} (${f.size} bytes)`;}; r.readAsText(f); }
-function msg(type,html){ return `<div class="status status-${type}">${html}</div>`; }
-function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
-
-function nav(page){
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-  document.getElementById('page-'+page).classList.add('active');
-  document.getElementById('nav-'+page).classList.add('active');
-  if(page==='learn') updateLiveHash();
+function exportBundle() {
+  if (S.lastBundle)
+    download(JSON.stringify(S.lastBundle, null, 2), "signed-" + Date.now() + ".json");
 }
-
-function switchTab(showId,containerId,btnIds){
-  document.getElementById(containerId).querySelectorAll(':scope > div').forEach(d=>d.style.display='none');
-  document.getElementById(showId).style.display='block';
-  btnIds.split(',').forEach(id=>{ const el=document.getElementById(id.trim()); if(el) el.classList.toggle('active', id.trim()===showId+'-btn'); });
+function copyBundle() {
+  if (S.lastBundle) navigator.clipboard.writeText(JSON.stringify(S.lastBundle, null, 2));
+}
+function copyText(id) {
+  navigator.clipboard.writeText(document.getElementById(id).textContent);
+}
+function download(text, name) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+  a.download = name;
+  a.click();
+}
+function loadFile() {
+  const f = document.getElementById("file-input").files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = (e) => {
+    S.fileContent = e.target.result;
+    document.getElementById("file-info").textContent = `✓ ${f.name} (${f.size} bytes)`;
+  };
+  r.readAsText(f);
+}
+function msg(type, html) {
+  return `<div class="status status-${type}">${html}</div>`;
+}
+function esc(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+function nav(page) {
+  document.querySelectorAll(".page").forEach((p) => p.classList.remove("active"));
+  document.querySelectorAll(".nav-item").forEach((n) => n.classList.remove("active"));
+  document.getElementById("page-" + page).classList.add("active");
+  document.getElementById("nav-" + page).classList.add("active");
+  if (page === "learn") {
+    updateLiveHash();
+    updateAvalanche();
+    calcRSA();
+  }
+}
+function switchTab(showId, containerId, btnIds) {
+  document
+    .getElementById(containerId)
+    .querySelectorAll(":scope > div")
+    .forEach((d) => (d.style.display = "none"));
+  document.getElementById(showId).style.display = "block";
+  btnIds.split(",").forEach((id) => {
+    const el = document.getElementById(id.trim());
+    if (el) el.classList.toggle("active", id.trim() === showId + "-btn");
+  });
 }
 
 // INIT
 renderMultiList();
 updateLiveHash();
+updateAvalanche();
+calcRSA();
 </script>
 </body>
 </html>
