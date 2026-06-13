@@ -4,2337 +4,1595 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>SecureSign — Digital Signature System</title>
-<!-- No external fonts, APIs, or libraries. Zero network requests. -->
-<!-- All cryptography: pure JavaScript SHA-256, AES-256-GCM, RSA-2048, PBKDF2. Zero APIs. -->
 <style>
-  :root {
-    --bg: #f8f9fb;
-    --bg2: #ffffff;
-    --bg3: #f0f2f7;
-    --border: rgba(120,120,200,0.12);
-    --border2: rgba(120,120,200,0.25);
-    --purple: #6366f1;
-    --purple2: #4f46e5;
-    --teal: #06b6d4;
-    --red: #ef4444;
-    --green: #10b981;
-    --orange: #f59e0b;
-    --text: #1e293b;
-    --text2: #64748b;
-    --text3: #94a3b8;
-    --mono: 'Courier New', Courier, 'Lucida Console', monospace;
-    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; display: flex; flex-direction: column; }
+:root {
+--bg: #f8f9fb;
+--bg2: #ffffff;
+--bg3: #f0f2f7;
+--border: rgba(120,120,200,0.12);
+--border2: rgba(120,120,200,0.25);
+--purple: #6366f1;
+--purple2: #4f46e5;
+--teal: #06b6d4;
+--red: #ef4444;
+--green: #10b981;
+--orange: #f59e0b;
+--text: #1e293b;
+--text2: #64748b;
+--text3: #94a3b8;
+--mono: 'Courier New', Courier, 'Lucida Console', monospace;
+--sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; display: flex; flex-direction: column; }
 
-  header { display: flex; align-items: center; justify-content: space-between; padding: 1.25rem 2rem; border-bottom: 1px solid var(--border); background: var(--bg2); position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
-  .logo { font-size: 15px; font-weight: 700; letter-spacing: -0.02em; color: var(--purple); display: flex; gap: 3px; }
-  .logo span { color: var(--teal); }
-  .status-dot { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text2); font-family: var(--mono); }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); }
+header { display: flex; align-items: center; justify-content: space-between; padding: 1.25rem 2rem; border-bottom: 1px solid var(--border); background: var(--bg2); position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+.logo { font-size: 15px; font-weight: 700; letter-spacing: -0.02em; color: var(--purple); display: flex; gap: 3px; }
+.logo span { color: var(--teal); }
+.status-dot { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text2); font-family: var(--mono); }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); }
 
-  .app { display: flex; flex: 1; }
-  nav { width: 210px; flex-shrink: 0; border-right: 1px solid var(--border); padding: 1.5rem 0; background: var(--bg2); }
-  .nav-section { font-size: 10px; font-family: var(--mono); letter-spacing: 0.12em; color: var(--text3); padding: 0 1.25rem 0.5rem; text-transform: uppercase; }
-  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 1.25rem; cursor: pointer; font-size: 13px; color: var(--text2); transition: all 0.15s; border-left: 2px solid transparent; }
-  .nav-item svg { width: 15px; height: 15px; flex-shrink: 0; }
-  .nav-item:hover { color: var(--text); background: var(--bg3); }
-  .nav-item.active { color: var(--purple); border-left-color: var(--purple); background: rgba(99,102,241,0.06); font-weight: 500; }
-  .nav-divider { height: 1px; background: var(--border); margin: 0.75rem 0; }
-  .nav-footer { padding: 1rem 1.25rem 0; font-size: 11px; font-family: var(--mono); color: var(--text3); line-height: 1.8; }
-  .nav-footer .key-count { color: var(--teal); font-weight: 700; }
+.app { display: flex; flex: 1; }
+nav { width: 210px; flex-shrink: 0; border-right: 1px solid var(--border); padding: 1.5rem 0; background: var(--bg2); }
+.nav-section { font-size: 10px; font-family: var(--mono); letter-spacing: 0.12em; color: var(--text3); padding: 0 1.25rem 0.5rem; text-transform: uppercase; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 1.25rem; cursor: pointer; font-size: 13px; color: var(--text2); transition: all 0.15s; border-left: 2px solid transparent; }
+.nav-item svg { width: 15px; height: 15px; flex-shrink: 0; }
+.nav-item:hover { color: var(--text); background: var(--bg3); }
+.nav-item.active { color: var(--purple); border-left-color: var(--purple); background: rgba(99,102,241,0.06); font-weight: 500; }
+.nav-divider { height: 1px; background: var(--border); margin: 0.75rem 0; }
+.nav-footer { padding: 1rem 1.25rem 0; font-size: 11px; font-family: var(--mono); color: var(--text3); line-height: 1.8; }
+.nav-footer .key-count { color: var(--teal); font-weight: 700; }
 
-  main { flex: 1; padding: 2rem; overflow-y: auto; max-width: 900px; }
-  .page { display: none; }
-  .page.active { display: block; }
-  .page-header { margin-bottom: 2rem; }
-  .page-header h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; letter-spacing: -0.02em; }
-  .page-header p { font-size: 13px; color: var(--text2); font-family: var(--mono); }
+main { flex: 1; padding: 2rem; overflow-y: auto; max-width: 900px; }
+.page { display: none; }
+.page.active { display: block; }
+.page-header { margin-bottom: 2rem; }
+.page-header h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; letter-spacing: -0.02em; }
+.page-header p { font-size: 13px; color: var(--text2); font-family: var(--mono); }
 
-  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.25rem; box-shadow: 0 1px 4px rgba(0,0,0,0.04); transition: box-shadow 0.2s; }
-  .card:hover { box-shadow: 0 3px 10px rgba(0,0,0,0.07); }
-  .card-label { font-size: 10px; font-family: var(--mono); letter-spacing: 0.12em; color: var(--text3); text-transform: uppercase; margin-bottom: 1rem; display: flex; align-items: center; gap: 8px; }
-  .card-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.25rem; box-shadow: 0 1px 4px rgba(0,0,0,0.04); transition: box-shadow 0.2s; }
+.card:hover { box-shadow: 0 3px 10px rgba(0,0,0,0.07); }
+.card-label { font-size: 10px; font-family: var(--mono); letter-spacing: 0.12em; color: var(--text3); text-transform: uppercase; margin-bottom: 1rem; display: flex; align-items: center; gap: 8px; }
+.card-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
-  label { display: block; font-size: 11px; font-family: var(--mono); color: var(--text2); margin-bottom: 6px; margin-top: 14px; letter-spacing: 0.04em; }
-  label:first-child { margin-top: 0; }
-  input[type=text], textarea, select { width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 9px 12px; font-size: 13px; color: var(--text); font-family: var(--mono); transition: border-color 0.15s, box-shadow 0.15s; outline: none; }
-  input[type=text]:focus, textarea:focus, select:focus { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(99,102,241,0.08); }
-  textarea { resize: vertical; line-height: 1.6; }
+label { display: block; font-size: 11px; font-family: var(--mono); color: var(--text2); margin-bottom: 6px; margin-top: 14px; letter-spacing: 0.04em; }
+label:first-child { margin-top: 0; }
+input[type=text], textarea, select { width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 9px 12px; font-size: 13px; color: var(--text); font-family: var(--mono); transition: border-color 0.15s, box-shadow 0.15s; outline: none; }
+input[type=text]:focus, textarea:focus, select:focus { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(99,102,241,0.08); }
+textarea { resize: vertical; line-height: 1.6; }
 
-  .btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 16px; font-size: 13px; font-family: var(--sans); font-weight: 500; border-radius: 8px; cursor: pointer; transition: all 0.15s; border: 1px solid var(--border2); background: transparent; color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
-  .btn:hover { background: var(--bg3); border-color: var(--purple); color: var(--purple); transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
-  .btn:active { transform: scale(0.98); }
-  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-  .btn-primary { background: var(--purple); border-color: var(--purple); color: #fff; box-shadow: 0 2px 6px rgba(99,102,241,0.2); }
-  .btn-primary:hover { background: var(--purple2); border-color: var(--purple2); color: #fff; box-shadow: 0 4px 10px rgba(99,102,241,0.3); }
-  .btn-teal { border-color: var(--teal); color: var(--teal); }
-  .btn-teal:hover { background: rgba(6,182,212,0.06); color: var(--teal); border-color: var(--teal); }
-  .btn-danger { border-color: var(--red); color: var(--red); }
-  .btn-danger:hover { background: rgba(239,68,68,0.06); color: var(--red); border-color: var(--red); }
-  .btn-row { display: flex; gap: 8px; margin-top: 1rem; flex-wrap: wrap; align-items: center; }
+.btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 16px; font-size: 13px; font-family: var(--sans); font-weight: 500; border-radius: 8px; cursor: pointer; transition: all 0.15s; border: 1px solid var(--border2); background: transparent; color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+.btn:hover { background: var(--bg3); border-color: var(--purple); color: var(--purple); transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+.btn:active { transform: scale(0.98); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.btn-primary { background: var(--purple); border-color: var(--purple); color: #fff; box-shadow: 0 2px 6px rgba(99,102,241,0.2); }
+.btn-primary:hover { background: var(--purple2); border-color: var(--purple2); color: #fff; box-shadow: 0 4px 10px rgba(99,102,241,0.3); }
+.btn-teal { border-color: var(--teal); color: var(--teal); }
+.btn-teal:hover { background: rgba(6,182,212,0.06); color: var(--teal); border-color: var(--teal); }
+.btn-danger { border-color: var(--red); color: var(--red); }
+.btn-danger:hover { background: rgba(239,68,68,0.06); color: var(--red); border-color: var(--red); }
+.btn-row { display: flex; gap: 8px; margin-top: 1rem; flex-wrap: wrap; align-items: center; }
 
-  .status { display: flex; align-items: flex-start; gap: 8px; padding: 10px 14px; border-radius: 8px; font-size: 12px; font-family: var(--mono); margin-top: 0.75rem; line-height: 1.5; }
-  .status-ok   { background: rgba(16,185,129,0.07); border: 1px solid rgba(16,185,129,0.2); color: #047857; }
-  .status-err  { background: rgba(239,68,68,0.07);  border: 1px solid rgba(239,68,68,0.2);  color: #b91c1c; }
-  .status-info { background: rgba(99,102,241,0.07); border: 1px solid rgba(99,102,241,0.2); color: var(--purple); }
-  .status-warn { background: rgba(245,158,11,0.07); border: 1px solid rgba(245,158,11,0.2); color: #92400e; }
+.status { display: flex; align-items: flex-start; gap: 8px; padding: 10px 14px; border-radius: 8px; font-size: 12px; font-family: var(--mono); margin-top: 0.75rem; line-height: 1.5; }
+.status-ok { background: rgba(16,185,129,0.07); border: 1px solid rgba(16,185,129,0.2); color: #047857; }
+.status-err { background: rgba(239,68,68,0.07); border: 1px solid rgba(239,68,68,0.2); color: #b91c1c; }
+.status-info { background: rgba(99,102,241,0.07); border: 1px solid rgba(99,102,241,0.2); color: var(--purple); }
+.status-warn { background: rgba(245,158,11,0.07); border: 1px solid rgba(245,158,11,0.2); color: #92400e; }
 
-  .mono-block { font-family: var(--mono); font-size: 10.5px; line-height: 1.7; word-break: break-all; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; color: var(--text2); max-height: 90px; overflow-y: auto; }
+.mono-block { font-family: var(--mono); font-size: 10.5px; line-height: 1.7; word-break: break-all; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; color: var(--text2); max-height: 90px; overflow-y: auto; }
 
-  .key-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-  .key-pane { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
-  .key-pane-label { font-size: 10px; font-family: var(--mono); letter-spacing: 0.1em; margin-bottom: 8px; font-weight: 600; }
-  .key-pane-label.private { color: var(--red); }
-  .key-pane-label.public  { color: var(--green); }
+.key-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.key-pane { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
+.key-pane-label { font-size: 10px; font-family: var(--mono); letter-spacing: 0.1em; margin-bottom: 8px; font-weight: 600; }
+.key-pane-label.private { color: var(--red); }
+.key-pane-label.public { color: var(--green); }
 
-  .hash-vis { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 10px; }
-  .hash-byte { width: 13px; height: 13px; border-radius: 2px; flex-shrink: 0; }
+.hash-vis { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 10px; }
+.hash-byte { width: 13px; height: 13px; border-radius: 2px; flex-shrink: 0; }
 
-  .signer-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; }
-  .signer-left { display: flex; align-items: center; gap: 12px; }
-  .avatar { width: 34px; height: 34px; border-radius: 50%; background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2); display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--purple); }
-  .signer-name { font-size: 13px; font-weight: 600; }
-  .signer-time { font-size: 11px; font-family: var(--mono); color: var(--text3); margin-top: 1px; }
+.signer-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; }
+.signer-left { display: flex; align-items: center; gap: 12px; }
+.avatar { width: 34px; height: 34px; border-radius: 50%; background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2); display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--purple); }
+.signer-name { font-size: 13px; font-weight: 600; }
+.signer-time { font-size: 11px; font-family: var(--mono); color: var(--text3); margin-top: 1px; }
 
-  .badge { font-size: 10px; font-family: var(--mono); font-weight: 600; padding: 3px 8px; border-radius: 4px; }
-  .badge-ok   { background: rgba(16,185,129,0.1);  color: #047857;      border: 1px solid rgba(16,185,129,0.2); }
-  .badge-info { background: rgba(99,102,241,0.1);  color: var(--purple); border: 1px solid rgba(99,102,241,0.2); }
-  .badge-warn { background: rgba(245,158,11,0.1);  color: #92400e;      border: 1px solid rgba(245,158,11,0.2); }
+.badge { font-size: 10px; font-family: var(--mono); font-weight: 600; padding: 3px 8px; border-radius: 4px; }
+.badge-ok { background: rgba(16,185,129,0.1); color: #047857; border: 1px solid rgba(16,185,129,0.2); }
+.badge-info { background: rgba(99,102,241,0.1); color: var(--purple); border: 1px solid rgba(99,102,241,0.2); }
+.badge-warn { background: rgba(245,158,11,0.1); color: #92400e; border: 1px solid rgba(245,158,11,0.2); }
 
-  .info-table { width: 100%; }
-  .info-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
-  .info-row:last-child { border-bottom: none; }
-  .info-key { color: var(--text2); font-family: var(--mono); }
-  .info-val { color: var(--text); font-family: var(--mono); font-size: 11px; }
+.info-table { width: 100%; }
+.info-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+.info-row:last-child { border-bottom: none; }
+.info-key { color: var(--text2); font-family: var(--mono); }
+.info-val { color: var(--text); font-family: var(--mono); font-size: 11px; }
 
-  .steps { display: flex; flex-direction: column; gap: 1rem; }
-  .step { display: flex; gap: 14px; }
-  .step-num { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2); color: var(--purple); font-size: 11px; font-weight: 700; font-family: var(--mono); display: flex; align-items: center; justify-content: center; }
-  .step-head { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
-  .step-desc { font-size: 12px; color: var(--text2); font-family: var(--mono); line-height: 1.6; }
-  .step-code { font-family: var(--mono); font-size: 11px; color: var(--teal); background: var(--bg3); border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px; margin-top: 6px; word-break: break-all; }
+.steps { display: flex; flex-direction: column; gap: 1rem; }
+.step { display: flex; gap: 14px; }
+.step-num { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2); color: var(--purple); font-size: 11px; font-weight: 700; font-family: var(--mono); display: flex; align-items: center; justify-content: center; }
+.step-head { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+.step-desc { font-size: 12px; color: var(--text2); font-family: var(--mono); line-height: 1.6; }
 
-  .tab-bar { display: flex; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
-  .tab { padding: 8px 16px; font-size: 12px; font-family: var(--mono); cursor: pointer; color: var(--text2); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; }
-  .tab:hover { color: var(--text); }
-  .tab.active { color: var(--purple); border-bottom-color: var(--purple); font-weight: 500; }
+.tab-bar { display: flex; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+.tab { padding: 8px 16px; font-size: 12px; font-family: var(--mono); cursor: pointer; color: var(--text2); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; }
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--purple); border-bottom-color: var(--purple); font-weight: 500; }
 
-  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
-  .hash-cell { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
-  .hash-cell-label { font-size: 10px; font-family: var(--mono); color: var(--text3); margin-bottom: 6px; letter-spacing: 0.08em; text-transform: uppercase; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
+.hash-cell { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
+.hash-cell-label { font-size: 10px; font-family: var(--mono); color: var(--text3); margin-bottom: 6px; letter-spacing: 0.08em; text-transform: uppercase; }
 
-  /* AES-specific styles */
-  .aes-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-  .aes-side { border-radius: 8px; padding: 1rem; }
-  .aes-side.rsa { background: rgba(99,102,241,0.05); border: 1px solid rgba(99,102,241,0.15); }
-  .aes-side.aes { background: rgba(6,182,212,0.05); border: 1px solid rgba(6,182,212,0.15); }
-  .aes-side-title { font-size: 12px; font-weight: 700; font-family: var(--mono); margin-bottom: 8px; }
-  .aes-side.rsa .aes-side-title { color: var(--purple); }
-  .aes-side.aes .aes-side-title { color: var(--teal); }
-  .aes-side ul { list-style: none; padding: 0; }
-  .aes-side ul li { font-size: 11px; font-family: var(--mono); color: var(--text2); padding: 3px 0; line-height: 1.6; }
-  .aes-side ul li::before { content: '→ '; color: var(--text3); }
+.aes-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.aes-side { border-radius: 8px; padding: 1rem; }
+.aes-side.rsa { background: rgba(99,102,241,0.05); border: 1px solid rgba(99,102,241,0.15); }
+.aes-side.aes { background: rgba(6,182,212,0.05); border: 1px solid rgba(6,182,212,0.15); }
+.aes-side-title { font-size: 12px; font-weight: 700; font-family: var(--mono); margin-bottom: 8px; }
+.aes-side.rsa .aes-side-title { color: var(--purple); }
+.aes-side.aes .aes-side-title { color: var(--teal); }
+.aes-side ul { list-style: none; padding: 0; }
+.aes-side ul li { font-size: 11px; font-family: var(--mono); color: var(--text2); padding: 3px 0; line-height: 1.6; }
+.aes-side ul li::before { content: '→ '; color: var(--text3); }
 
-  .crypto-flow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
-  .flow-box { background: var(--bg3); border: 1px solid var(--border2); border-radius: 6px; padding: 6px 12px; font-size: 11px; font-family: var(--mono); color: var(--text); white-space: nowrap; }
-  .flow-box.highlight-purple { background: rgba(99,102,241,0.08); border-color: rgba(99,102,241,0.3); color: var(--purple); font-weight: 600; }
-  .flow-box.highlight-teal   { background: rgba(6,182,212,0.08);  border-color: rgba(6,182,212,0.3);  color: var(--teal); font-weight: 600; }
-  .flow-box.highlight-green  { background: rgba(16,185,129,0.08); border-color: rgba(16,185,129,0.3); color: var(--green); font-weight: 600; }
-  .flow-box.highlight-orange { background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.3); color: var(--orange); font-weight: 600; }
-  .flow-arrow { color: var(--text3); font-size: 14px; }
+.crypto-flow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+.flow-box { background: var(--bg3); border: 1px solid var(--border2); border-radius: 6px; padding: 6px 12px; font-size: 11px; font-family: var(--mono); color: var(--text); white-space: nowrap; }
+.flow-box.highlight-purple { background: rgba(99,102,241,0.08); border-color: rgba(99,102,241,0.3); color: var(--purple); font-weight: 600; }
+.flow-box.highlight-teal { background: rgba(6,182,212,0.08); border-color: rgba(6,182,212,0.3); color: var(--teal); font-weight: 600; }
+.flow-box.highlight-green { background: rgba(16,185,129,0.08); border-color: rgba(16,185,129,0.3); color: var(--green); font-weight: 600; }
+.flow-box.highlight-orange { background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.3); color: var(--orange); font-weight: 600; }
+.flow-arrow { color: var(--text3); font-size: 14px; }
 
-  .aes-detail-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
-  .aes-detail-box { border-radius: 8px; padding: 10px; text-align: center; }
-  .aes-detail-box .label { font-size: 9px; font-family: var(--mono); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 4px; }
-  .aes-detail-box .value { font-size: 12px; font-family: var(--mono); font-weight: 700; }
-  .detail-purple { background: rgba(99,102,241,0.07); border: 1px solid rgba(99,102,241,0.15); }
-  .detail-purple .label { color: rgba(99,102,241,0.6); }
-  .detail-purple .value { color: var(--purple); }
-  .detail-teal { background: rgba(6,182,212,0.07); border: 1px solid rgba(6,182,212,0.15); }
-  .detail-teal .label { color: rgba(6,182,212,0.6); }
-  .detail-teal .value { color: var(--teal); }
-  .detail-red { background: rgba(239,68,68,0.07); border: 1px solid rgba(239,68,68,0.15); }
-  .detail-red .label { color: rgba(239,68,68,0.6); }
-  .detail-red .value { color: var(--red); }
-  .detail-green { background: rgba(16,185,129,0.07); border: 1px solid rgba(16,185,129,0.15); }
-  .detail-green .label { color: rgba(16,185,129,0.6); }
-  .detail-green .value { color: var(--green); }
+.aes-detail-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
+.aes-detail-box { border-radius: 8px; padding: 10px; text-align: center; }
+.aes-detail-box .label { font-size: 9px; font-family: var(--mono); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 4px; }
+.aes-detail-box .value { font-size: 12px; font-family: var(--mono); font-weight: 700; }
+.detail-purple { background: rgba(99,102,241,0.07); border: 1px solid rgba(99,102,241,0.15); }
+.detail-purple .label { color: rgba(99,102,241,0.6); }
+.detail-purple .value { color: var(--purple); }
+.detail-teal { background: rgba(6,182,212,0.07); border: 1px solid rgba(6,182,212,0.15); }
+.detail-teal .label { color: rgba(6,182,212,0.6); }
+.detail-teal .value { color: var(--teal); }
+.detail-red { background: rgba(239,68,68,0.07); border: 1px solid rgba(239,68,68,0.15); }
+.detail-red .label { color: rgba(239,68,68,0.6); }
+.detail-red .value { color: var(--red); }
+.detail-green { background: rgba(16,185,129,0.07); border: 1px solid rgba(16,185,129,0.15); }
+.detail-green .label { color: rgba(16,185,129,0.6); }
+.detail-green .value { color: var(--green); }
 
-  .verify-big { display: flex; align-items: center; gap: 16px; padding: 1.5rem; border-radius: 10px; margin-bottom: 1rem; }
-  .verify-big.ok  { background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.2); }
-  .verify-big.err { background: rgba(239,68,68,0.06);  border: 1px solid rgba(239,68,68,0.2); }
-  .verify-icon { font-size: 36px; }
-  .verify-title { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
-  .verify-subtitle { font-size: 12px; font-family: var(--mono); }
-  .verify-big.ok  .verify-title    { color: var(--green); }
-  .verify-big.ok  .verify-subtitle { color: rgba(16,185,129,0.6); }
-  .verify-big.err .verify-title    { color: var(--red); }
-  .verify-big.err .verify-subtitle { color: rgba(239,68,68,0.6); }
+.verify-big { display: flex; align-items: center; gap: 16px; padding: 1.5rem; border-radius: 10px; margin-bottom: 1rem; }
+.verify-big.ok { background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.2); }
+.verify-big.err { background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.2); }
+.verify-icon { font-size: 36px; }
+.verify-title { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
+.verify-subtitle { font-size: 12px; font-family: var(--mono); }
+.verify-big.ok .verify-title { color: var(--green); }
+.verify-big.ok .verify-subtitle { color: rgba(16,185,129,0.6); }
+.verify-big.err .verify-title { color: var(--red); }
+.verify-big.err .verify-subtitle { color: rgba(239,68,68,0.6); }
 
-  .divider { height: 1px; background: var(--border); margin: 1rem 0; }
+.divider { height: 1px; background: var(--border); margin: 1rem 0; }
 
-  input[type=file] { font-family: var(--mono); font-size: 12px; color: var(--text2); cursor: pointer; }
-  input[type=file]::file-selector-button { background: var(--bg3); border: 1px solid var(--border2); border-radius: 4px; color: var(--text); padding: 6px 12px; font-family: var(--mono); font-size: 11px; cursor: pointer; margin-right: 10px; }
+input[type=file] { font-family: var(--mono); font-size: 12px; color: var(--text2); cursor: pointer; }
+input[type=file]::file-selector-button { background: var(--bg3); border: 1px solid var(--border2); border-radius: 4px; color: var(--text); padding: 6px 12px; font-family: var(--mono); font-size: 11px; cursor: pointer; margin-right: 10px; }
 
-  .spin { animation: spin 1s linear infinite; display: inline-block; }
-  @keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin 1s linear infinite; display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
-  ::-webkit-scrollbar { width: 5px; }
-  ::-webkit-scrollbar-track { background: var(--bg); }
-  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+/* Learn page math blocks */
+.math-block { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; margin-top: 8px; }
+.math-line { font-size: 12px; font-family: var(--mono); color: var(--text2); padding: 2px 0; line-height: 1.7; }
+.math-val { font-weight: 700; }
+.math-val.purple { color: var(--purple); }
+.math-val.teal { color: var(--teal); }
+.math-val.green { color: var(--green); }
+.math-val.red { color: var(--red); }
+.math-val.dim { color: var(--text3); }
+.math-note { font-size: 11px; color: var(--text3); margin-top: 4px; }
+.math-verify { color: var(--green); }
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
 </style>
 </head>
 <body>
 
 <header>
-  <div class="logo">SECURE<span>SIGN</span></div>
-  <div class="status-dot">
-    <div class="dot"></div>
-    <span id="header-status">RSA-2048 · AES-256-GCM · SHA-256 </span>
-  </div>
+<div class="logo">SECURE<span>SIGN</span></div>
+<div class="status-dot">
+<div class="dot"></div>
+<span id="header-status">RSA-2048 · AES-256-GCM · SHA-256</span>
+</div>
 </header>
 
 <div class="app">
-  <nav>
-    <div class="nav-section">Signatures</div>
-    <div class="nav-item active" onclick="nav('keygen')" id="nav-keygen">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-      Key Generation
-    </div>
-    <div class="nav-item" onclick="nav('sign')" id="nav-sign">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-      Sign Document
-    </div>
-    <div class="nav-item" onclick="nav('verify')" id="nav-verify">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0 1 12 2.944a11.955 11.955 0 0 1-8.618 3.04A12.02 12.02 0 0 0 3 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-      Verify Signature
-    </div>
-    <div class="nav-divider"></div>
-    <div class="nav-section">Advanced</div>
-    <div class="nav-item" onclick="nav('multisign')" id="nav-multisign">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      Multi-Sign
-    </div>
-    <div class="nav-item" onclick="nav('learn')" id="nav-learn">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-      How It Works
-    </div>
-    <div class="nav-divider"></div>
-    <div class="nav-footer">Keys loaded: <span class="key-count" id="key-count">0</span></div>
-  </nav>
+<nav>
+<div class="nav-section">Signatures</div>
+<div class="nav-item active" onclick="nav('keygen')" id="nav-keygen">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+Key Generation
+</div>
+<div class="nav-item" onclick="nav('sign')" id="nav-sign">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+Sign Document
+</div>
+<div class="nav-item" onclick="nav('verify')" id="nav-verify">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0 1 12 2.944a11.955 11.955 0 0 1-8.618 3.04A12.02 12.02 0 0 0 3 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+Verify Signature
+</div>
+<div class="nav-divider"></div>
+<div class="nav-section">Advanced</div>
+<div class="nav-item" onclick="nav('multisign')" id="nav-multisign">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+Multi-Sign
+</div>
+<div class="nav-item" onclick="nav('aes')" id="nav-aes">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+AES-256-GCM
+</div>
+<div class="nav-item" onclick="nav('learn')" id="nav-learn">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+How It Works
+</div>
+<div class="nav-divider"></div>
+<div class="nav-footer">Keys loaded: <span class="key-count" id="key-count">0</span></div>
+</nav>
 
-  <main>
+<main>
 
-    <!-- ══ KEY GENERATION ══ -->
-    <div class="page active" id="page-keygen">
-      <div class="page-header">
-        <h1>Key Generation</h1>
-        <p>RSA-2048 </p>
-      </div>
-      <div class="card">
-        <div class="card-label">Identity</div>
-        <label>Your name</label>
-        <input type="text" id="user-name" placeholder="Alice, Bob, Charlie…" value="Alice" />
-        <div class="btn-row">
-          <button class="btn btn-primary" onclick="generateKeys()">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-            Generate RSA-2048 Key Pair
-          </button>
-        </div>
-        <div id="keygen-status"></div>
-      </div>
-      <div id="key-display-card" style="display:none">
-        <div class="card">
-          <div class="card-label">Your Key Pair</div>
-          <div class="key-grid">
-            <div class="key-pane">
-              <div class="key-pane-label private">🔴 Private Key — keep secret</div>
-              <div class="mono-block" id="priv-display">—</div>
-              <div class="btn-row"><button class="btn" style="font-size:10px;padding:5px 10px" onclick="copyText('priv-display')">Copy PEM</button></div>
-            </div>
-            <div class="key-pane">
-              <div class="key-pane-label public">🟢 Public Key — share freely</div>
-              <div class="mono-block" id="pub-display">—</div>
-              <div class="btn-row"><button class="btn" style="font-size:10px;padding:5px 10px" onclick="copyText('pub-display')">Copy PEM</button></div>
-            </div>
-          </div>
-          <div class="divider"></div>
-          <div style="font-size:11px;color:var(--text3);font-family:var(--mono)">Algorithm: RSA-PSS · Key size: 2048 bits · Hash: SHA-256 · Exponent: 65537</div>
-        </div>
-      </div>
-      <div id="keystore-wrapper" style="display:none">
-        <div class="card">
-          <div class="card-label">Key Store (session)</div>
-          <div id="keystore-list"></div>
-        </div>
-      </div>
-    </div>
+<!-- KEY GENERATION -->
+<div class="page active" id="page-keygen">
+<div class="page-header">
+<h1>Key Generation</h1>
+<p>RSA-2048 · Pure JavaScript</p>
+</div>
+<div class="card">
+<div class="card-label">Identity</div>
+<label>Your name</label>
+<input type="text" id="user-name" placeholder="Alice, Bob, Charlie…" value="Alice" />
+<div class="btn-row">
+<button class="btn btn-primary" onclick="generateKeys()">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+Generate RSA-2048 Key Pair
+</button>
+</div>
+<div id="keygen-status"></div>
+</div>
+<div id="key-display-card" style="display:none">
+<div class="card">
+<div class="card-label">Your Key Pair</div>
+<div class="key-grid">
+<div class="key-pane">
+<div class="key-pane-label private">🔴 Private Key — keep secret</div>
+<div class="mono-block" id="priv-display">—</div>
+<div class="btn-row"><button class="btn" style="font-size:10px;padding:5px 10px" onclick="copyText('priv-display')">Copy PEM</button></div>
+</div>
+<div class="key-pane">
+<div class="key-pane-label public">🟢 Public Key — share freely</div>
+<div class="mono-block" id="pub-display">—</div>
+<div class="btn-row"><button class="btn" style="font-size:10px;padding:5px 10px" onclick="copyText('pub-display')">Copy PEM</button></div>
+</div>
+</div>
+<div class="divider"></div>
+<div style="font-size:11px;color:var(--text3);font-family:var(--mono)">Algorithm: RSA-PKCS1v15 · Key size: 2048 bits · Hash: SHA-256 · Exponent: 65537</div>
+</div>
+</div>
+<div id="keystore-wrapper" style="display:none">
+<div class="card">
+<div class="card-label">Key Store (session)</div>
+<div id="keystore-list"></div>
+</div>
+</div>
+</div>
 
-    <!-- ══ SIGN ══ -->
-    <div class="page" id="page-sign">
-      <div class="page-header">
-        <h1>Sign Document</h1>
-        
-      </div>
-      <div class="tab-bar">
-        <div class="tab active" id="stab-text-btn" onclick="switchTab('stab-text','sign-tabs','stab-text-btn,stab-file-btn')">Text</div>
-        <div class="tab" id="stab-file-btn" onclick="switchTab('stab-file','sign-tabs','stab-text-btn,stab-file-btn')">File Upload</div>
-      </div>
-      <div id="sign-tabs">
-        <div id="stab-text">
-          <div class="card">
-            <div class="card-label">Document</div>
-            <textarea id="sign-doc" rows="5" placeholder="Type your document here..."></textarea>
-          </div>
-        </div>
-        <div id="stab-file" style="display:none">
-          <div class="card">
-            <div class="card-label">Upload File</div>
-            <input type="file" id="file-input" onchange="loadFile()" />
-            <div id="file-info" style="margin-top:8px;font-size:11px;color:var(--text2);font-family:var(--mono)"></div>
-          </div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-label">Signer</div>
-        <div id="no-keys-warn" class="status status-warn">⚠ No keys yet — go to Key Generation first.</div>
-        <div id="key-selector" style="display:none">
-          <label>Select signing key</label>
-          <select id="key-picker"></select>
-        </div>
-        <div class="btn-row">
-          <button class="btn btn-primary" id="sign-btn" onclick="signDocument()" disabled>Sign Document</button>
-        </div>
-        <div id="sign-status"></div>
-      </div>
-      <div id="sig-output" style="display:none">
-        <div class="card">
-          <div class="card-label">Signature Output</div>
-          <div class="two-col">
-            <div class="hash-cell">
-              <div class="hash-cell-label">SHA-256 Fingerprint</div>
-              <div class="mono-block" id="out-hash" style="max-height:55px">—</div>
-            </div>
-            <div class="hash-cell">
-              <div class="hash-cell-label">RSA-PSS Signature (hex)</div>
-              <div class="mono-block" id="out-sig" style="max-height:55px">—</div>
-            </div>
-          </div>
-          <div style="margin-top:12px">
-            <div style="font-size:10px;font-family:var(--mono);color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.08em">Visual hash fingerprint (32 bytes)</div>
-            <div class="hash-vis" id="hash-color-vis"></div>
-          </div>
-          <div class="divider"></div>
-          <div class="btn-row">
-            <button class="btn btn-teal" onclick="exportBundle()">Download .json</button>
-            <button class="btn" onclick="copyBundle()">Copy JSON</button>
-          </div>
-        </div>
-        <!-- ENCRYPT SIGNED BUNDLE INLINE -->
-        <div class="card" style="border-color:rgba(6,182,212,0.25);background:rgba(6,182,212,0.02)">
-          <div class="card-label" style="color:var(--teal)">Optional — Encrypt this signature with AES-256</div>
-          <p style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6">Add a password lock on top. The recipient needs the password to read the content, but the RSA signature inside still proves who sent it.</p>
-          <label>Password (share this separately with the recipient)</label>
-          <input type="text" id="sign-aes-pass" placeholder="Enter a password…" />
-          <div class="btn-row">
-            <button class="btn btn-primary" onclick="encryptSignedBundle()">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              Encrypt Signed Bundle
-            </button>
-          </div>
-          <div id="sign-aes-status"></div>
-          <div id="sign-aes-output" style="display:none;margin-top:1rem">
-            <div class="hash-cell-label" style="margin-bottom:6px">Encrypted bundle (send this to recipient)</div>
-            <div class="mono-block" id="sign-aes-bundle" style="max-height:100px">—</div>
-            <div class="btn-row">
-              <button class="btn btn-teal" onclick="copyEncBundle()">Copy</button>
-              <button class="btn" onclick="downloadEncBundle()">Download .json</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+<!-- SIGN -->
+<div class="page" id="page-sign">
+<div class="page-header">
+<h1>Sign Document</h1>
+<p>SHA-256 hash → RSA-PKCS1v15 signature</p>
+</div>
+<div class="tab-bar">
+<div class="tab active" id="stab-text-btn" onclick="switchTab('stab-text','sign-tabs','stab-text-btn,stab-file-btn')">Text</div>
+<div class="tab" id="stab-file-btn" onclick="switchTab('stab-file','sign-tabs','stab-text-btn,stab-file-btn')">File Upload</div>
+</div>
+<div id="sign-tabs">
+<div id="stab-text">
+<div class="card">
+<div class="card-label">Document</div>
+<textarea id="sign-doc" rows="5" placeholder="Type your document here..."></textarea>
+</div>
+</div>
+<div id="stab-file" style="display:none">
+<div class="card">
+<div class="card-label">Upload File</div>
+<input type="file" id="file-input" onchange="loadFile()" />
+<div id="file-info" style="margin-top:8px;font-size:11px;color:var(--text2);font-family:var(--mono)"></div>
+</div>
+</div>
+</div>
+<div class="card">
+<div class="card-label">Signer</div>
+<div id="no-keys-warn" class="status status-warn">⚠ No keys yet — go to Key Generation first.</div>
+<div id="key-selector" style="display:none">
+<label>Select signing key</label>
+<select id="key-picker"></select>
+</div>
+<div class="btn-row">
+<button class="btn btn-primary" id="sign-btn" onclick="signDocument()" disabled>Sign Document</button>
+</div>
+<div id="sign-status"></div>
+</div>
+<div id="sig-output" style="display:none">
+<div class="card">
+<div class="card-label">Signature Output</div>
+<div class="two-col">
+<div class="hash-cell">
+<div class="hash-cell-label">SHA-256 Fingerprint</div>
+<div class="mono-block" id="out-hash" style="max-height:55px">—</div>
+</div>
+<div class="hash-cell">
+<div class="hash-cell-label">RSA Signature (hex)</div>
+<div class="mono-block" id="out-sig" style="max-height:55px">—</div>
+</div>
+</div>
+<div style="margin-top:12px">
+<div style="font-size:10px;font-family:var(--mono);color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.08em">Visual hash fingerprint (32 bytes)</div>
+<div class="hash-vis" id="hash-color-vis"></div>
+</div>
+<div class="divider"></div>
+<div class="btn-row">
+<button class="btn btn-teal" onclick="exportBundle()">Download .json</button>
+<button class="btn" onclick="copyBundle()">Copy JSON</button>
+</div>
+</div>
+<div class="card" style="border-color:rgba(6,182,212,0.25);background:rgba(6,182,212,0.02)">
+<div class="card-label" style="color:var(--teal)">Optional — Encrypt this signature with AES-256</div>
+<p style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6">Add a password lock on top. The RSA signature inside still proves who sent it.</p>
+<label>Password</label>
+<input type="text" id="sign-aes-pass" placeholder="Enter a password…" />
+<div class="btn-row">
+<button class="btn btn-primary" onclick="encryptSignedBundle()">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+Encrypt Signed Bundle
+</button>
+</div>
+<div id="sign-aes-status"></div>
+<div id="sign-aes-output" style="display:none;margin-top:1rem">
+<div class="hash-cell-label" style="margin-bottom:6px">Encrypted bundle</div>
+<div class="mono-block" id="sign-aes-bundle" style="max-height:100px">—</div>
+<div class="btn-row">
+<button class="btn btn-teal" onclick="copyEncBundle()">Copy</button>
+<button class="btn" onclick="downloadEncBundle()">Download .json</button>
+</div>
+</div>
+</div>
+</div>
+</div>
 
-    <!-- ══ VERIFY ══ -->
-    <div class="page" id="page-verify">
-      <div class="page-header">
-        <h1>Verify Signature</h1>
-        <p>Decrypt signature with public key → compare SHA-256 hashes</p>
-      </div>
-      <div class="tab-bar">
-        <div class="tab active" id="vtab-plain-btn" onclick="switchTab('vtab-plain','vtabs','vtab-plain-btn,vtab-enc-btn,vtab-manual-btn')">Plain Bundle</div>
-        <div class="tab" id="vtab-enc-btn" onclick="switchTab('vtab-enc','vtabs','vtab-plain-btn,vtab-enc-btn,vtab-manual-btn')">Encrypted Bundle</div>
-        <div class="tab" id="vtab-manual-btn" onclick="switchTab('vtab-manual','vtabs','vtab-plain-btn,vtab-enc-btn,vtab-manual-btn')">Manual</div>
-      </div>
-      <div id="vtabs">
-        <div id="vtab-plain">
-          <div class="card">
-            <div class="card-label">Paste Any Bundle — Plain or Encrypted</div>
-            <p style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.6">
-              Paste any bundle here. The app <strong>automatically detects</strong> whether it is a plain signed bundle or an AES-encrypted bundle and handles it correctly.
-            </p>
-            <textarea id="verify-bundle" rows="7" placeholder='Paste any bundle here — plain {"document":…} or encrypted {"encrypted":{…}}'
-              oninput="detectBundleType()"></textarea>
+<!-- VERIFY -->
+<div class="page" id="page-verify">
+<div class="page-header">
+<h1>Verify Signature</h1>
+<p>Decrypt signature with public key → compare SHA-256 hashes</p>
+</div>
+<div class="tab-bar">
+<div class="tab active" id="vtab-plain-btn" onclick="switchTab('vtab-plain','vtabs','vtab-plain-btn,vtab-enc-btn,vtab-manual-btn')">Plain Bundle</div>
+<div class="tab" id="vtab-enc-btn" onclick="switchTab('vtab-enc','vtabs','vtab-plain-btn,vtab-enc-btn,vtab-manual-btn')">Encrypted Bundle</div>
+<div class="tab" id="vtab-manual-btn" onclick="switchTab('vtab-manual','vtabs','vtab-plain-btn,vtab-enc-btn,vtab-manual-btn')">Manual</div>
+</div>
+<div id="vtabs">
+<div id="vtab-plain">
+<div class="card">
+<div class="card-label">Paste Any Bundle</div>
+<textarea id="verify-bundle" rows="7" placeholder='Paste any bundle here — plain {"document":…} or encrypted {"encrypted":{…}}' oninput="detectBundleType()"></textarea>
+<div id="enc-pass-section" style="display:none;margin-top:12px;padding:12px;background:rgba(6,182,212,0.05);border:1px solid rgba(6,182,212,0.2);border-radius:8px">
+<div style="font-size:11px;font-family:var(--mono);color:var(--teal);margin-bottom:8px;font-weight:600">🔒 ENCRYPTED BUNDLE DETECTED — enter password</div>
+<input type="text" id="auto-dec-pass" placeholder="Enter the password used to encrypt…" />
+</div>
+<div id="bundle-type-hint" style="margin-top:8px;font-size:11px;font-family:var(--mono);color:var(--text3)"></div>
+<div class="btn-row">
+<button class="btn btn-primary" onclick="verifyBundle()">Verify</button>
+</div>
+</div>
+</div>
+<div id="vtab-enc" style="display:none">
+<div class="card">
+<div class="card-label">Verify an AES-Encrypted Signed Bundle</div>
+<label>Password</label>
+<input type="text" id="v-enc-pass" placeholder="Password used to encrypt…" />
+<label>Encrypted bundle JSON</label>
+<textarea id="v-enc-bundle" rows="6"></textarea>
+<div class="btn-row">
+<button class="btn btn-primary" onclick="decryptAndVerify()">Decrypt + Verify</button>
+</div>
+<div id="v-enc-status"></div>
+</div>
+</div>
+<div id="vtab-manual" style="display:none">
+<div class="card">
+<div class="card-label">Manual Verification</div>
+<label>Document text (exact)</label>
+<textarea id="v-doc" rows="3"></textarea>
+<label>Signature (hex)</label>
+<textarea id="v-sig" rows="2"></textarea>
+<label>Public Key (PEM)</label>
+<textarea id="v-pub" rows="4" placeholder="-----BEGIN PUBLIC KEY-----&#10;…&#10;-----END PUBLIC KEY-----"></textarea>
+<div class="btn-row">
+<button class="btn btn-primary" onclick="verifyManual()">Verify</button>
+</div>
+</div>
+</div>
+</div>
+<div id="verify-result" style="display:none"><div id="verify-result-inner"></div></div>
+<div class="card">
+<div class="card-label">Tamper Test Lab</div>
+<p style="font-size:13px;color:var(--text2);margin-bottom:12px">Modify the signed document then verify — watch it fail.</p>
+<div class="btn-row">
+<button class="btn" onclick="loadTamperDoc()">Load last signed</button>
+<button class="btn btn-danger" id="tamper-btn" onclick="tamperDoc()" disabled>Tamper document</button>
+<button class="btn btn-primary" id="tamper-verify-btn" onclick="verifyTampered()" disabled>Verify tampered</button>
+</div>
+<div id="tamper-preview" style="margin-top:10px"></div>
+<div id="tamper-status"></div>
+</div>
+</div>
 
-            <!-- shown only when encrypted bundle detected -->
-            <div id="enc-pass-section" style="display:none;margin-top:12px;padding:12px;background:rgba(6,182,212,0.05);border:1px solid rgba(6,182,212,0.2);border-radius:8px">
-              <div style="font-size:11px;font-family:var(--mono);color:var(--teal);margin-bottom:8px;font-weight:600">
-                🔒 ENCRYPTED BUNDLE DETECTED — enter password to decrypt then verify
-              </div>
-              <input type="text" id="auto-dec-pass" placeholder="Enter the password used to encrypt…" />
-            </div>
+<!-- AES-256-GCM -->
+<div class="page" id="page-aes">
+<div class="page-header">
+<h1>AES-256-GCM Encryption</h1>
+<p>Symmetric encryption — password → PBKDF2 → AES-256 key → encrypt/decrypt</p>
+</div>
+<div class="card">
+<div class="card-label">RSA vs AES — when to use which</div>
+<div class="aes-compare">
+<div class="aes-side rsa">
+<div class="aes-side-title">RSA-2048 (signatures)</div>
+<ul>
+<li>2 keys: private + public</li>
+<li>Private key signs, public verifies</li>
+<li>Proves who sent it</li>
+<li>Slow — used only on small hashes</li>
+<li>Can't hide content, only authenticate</li>
+</ul>
+</div>
+<div class="aes-side aes">
+<div class="aes-side-title">AES-256-GCM (encryption)</div>
+<ul>
+<li>1 shared secret key</li>
+<li>Same key encrypts AND decrypts</li>
+<li>Hides content from others</li>
+<li>Fast — encrypts any amount of data</li>
+<li>GCM auth tag detects any tampering</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="tab-bar">
+<div class="tab active" id="aes-enc-btn" onclick="switchTab('aes-enc','aes-tabs','aes-enc-btn,aes-dec-btn')">Encrypt</div>
+<div class="tab" id="aes-dec-btn" onclick="switchTab('aes-dec','aes-tabs','aes-enc-btn,aes-dec-btn')">Decrypt</div>
+</div>
+<div id="aes-tabs">
+<div id="aes-enc">
+<div class="card">
+<div class="card-label">Password → Key derivation (PBKDF2)</div>
+<div class="crypto-flow">
+<div class="flow-box">Password</div>
+<div class="flow-arrow">→</div>
+<div class="flow-box highlight-purple">PBKDF2-SHA256 × 100k</div>
+<div class="flow-arrow">→</div>
+<div class="flow-box highlight-teal">256-bit AES Key</div>
+</div>
+<label>Password</label>
+<input type="text" id="aes-enc-pass" placeholder="Enter a strong password…" />
+</div>
+<div class="card">
+<div class="card-label">Plaintext</div>
+<textarea id="aes-plaintext" rows="4" placeholder="Enter your secret message…"></textarea>
+</div>
+<div class="card">
+<div class="card-label">AES-256-GCM Encrypt</div>
+<div class="btn-row">
+<button class="btn btn-primary" onclick="aesEncrypt()">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+Encrypt with AES-256-GCM
+</button>
+</div>
+<div id="aes-enc-status"></div>
+</div>
+<div id="aes-enc-output" style="display:none">
+<div class="card">
+<div class="card-label">Encryption Result</div>
+<div class="aes-detail-grid">
+<div class="aes-detail-box detail-purple"><div class="label">Derived Key</div><div class="value">256 bits</div></div>
+<div class="aes-detail-box detail-teal"><div class="label">IV / Nonce</div><div class="value">96 bits</div></div>
+<div class="aes-detail-box detail-red"><div class="label">Ciphertext</div><div class="value" id="aes-cipher-size">—</div></div>
+<div class="aes-detail-box detail-green"><div class="label">Auth Tag</div><div class="value">128 bits</div></div>
+</div>
+<div style="margin-top:14px">
+<div class="hash-cell-label" style="margin-bottom:4px;color:var(--purple)">PBKDF2 Salt</div>
+<div class="mono-block" id="aes-out-salt" style="max-height:40px">—</div>
+</div>
+<div style="margin-top:10px">
+<div class="hash-cell-label" style="margin-bottom:4px;color:var(--teal)">IV / Nonce</div>
+<div class="mono-block" id="aes-out-iv" style="max-height:40px">—</div>
+</div>
+<div style="margin-top:10px">
+<div class="hash-cell-label" style="margin-bottom:4px;color:var(--red)">Ciphertext</div>
+<div class="mono-block" id="aes-out-cipher" style="max-height:60px">—</div>
+</div>
+<div style="margin-top:10px">
+<div class="hash-cell-label" style="margin-bottom:4px;color:var(--orange)">GCM Auth Tag</div>
+<div class="mono-block" id="aes-out-tag" style="max-height:40px">—</div>
+</div>
+<div class="divider"></div>
+<div class="hash-cell-label" style="margin-bottom:6px">Full JSON bundle</div>
+<div class="mono-block" id="aes-bundle-out" style="max-height:110px">—</div>
+<div class="btn-row">
+<button class="btn btn-teal" onclick="copyAesBundle()">Copy bundle</button>
+<button class="btn" onclick="downloadAesBundle()">Download .json</button>
+<button class="btn" onclick="autoFillDecrypt()">→ Go to Decrypt</button>
+</div>
+</div>
+</div>
+</div>
+<div id="aes-dec" style="display:none">
+<div class="card">
+<div class="card-label">Decrypt AES-256-GCM bundle</div>
+<div class="crypto-flow">
+<div class="flow-box">Password + Salt</div>
+<div class="flow-arrow">→</div>
+<div class="flow-box highlight-purple">PBKDF2</div>
+<div class="flow-arrow">→</div>
+<div class="flow-box highlight-teal">AES Key</div>
+<div class="flow-arrow">+</div>
+<div class="flow-box">IV</div>
+<div class="flow-arrow">→</div>
+<div class="flow-box highlight-green">Plaintext ✓</div>
+</div>
+<label>Password</label>
+<input type="text" id="aes-dec-pass" placeholder="Enter the password used to encrypt…" />
+<label>Encrypted bundle (JSON)</label>
+<textarea id="aes-dec-bundle" rows="6"></textarea>
+<div class="btn-row">
+<button class="btn btn-primary" onclick="aesDecrypt()">Decrypt</button>
+</div>
+<div id="aes-dec-status"></div>
+</div>
+<div id="aes-dec-output" style="display:none">
+<div class="card" style="border-color:rgba(16,185,129,0.25);background:rgba(16,185,129,0.02)">
+<div class="card-label" style="color:var(--green)">Decrypted Plaintext</div>
+<div class="mono-block" id="aes-plaintext-out" style="color:var(--text);max-height:none;font-size:13px">—</div>
+</div>
+</div>
+</div>
+</div>
+</div>
 
-            <div id="bundle-type-hint" style="margin-top:8px;font-size:11px;font-family:var(--mono);color:var(--text3)"></div>
-
-            <div class="btn-row">
-              <button class="btn btn-primary" onclick="verifyBundle()">Verify</button>
-            </div>
-          </div>
-        </div>
-        <div id="vtab-enc" style="display:none">
-          <div class="card">
-            <div class="card-label">Verify an AES-Encrypted Signed Bundle</div>
-            <p style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6">Paste the encrypted bundle here. Enter the password → it decrypts → then automatically verifies the RSA signature inside.</p>
-            <label>Password</label>
-            <input type="text" id="v-enc-pass" placeholder="Password used to encrypt…" />
-            <label>Encrypted bundle JSON</label>
-            <textarea id="v-enc-bundle" rows="6" placeholder='{"encrypted":{"salt":"…","iv":"…","ciphertext":"…","tag":"…"},"algorithm":"…"}'></textarea>
-            <div class="btn-row">
-              <button class="btn btn-primary" onclick="decryptAndVerify()">Decrypt + Verify</button>
-            </div>
-            <div id="v-enc-status"></div>
-          </div>
-        </div>
-        <div id="vtab-manual" style="display:none">
-          <div class="card">
-            <div class="card-label">Manual Verification</div>
-            <label>Document text (exact)</label>
-            <textarea id="v-doc" rows="3"></textarea>
-            <label>Signature (hex)</label>
-            <textarea id="v-sig" rows="2"></textarea>
-            <label>Public Key (PEM)</label>
-            <textarea id="v-pub" rows="4" placeholder="-----BEGIN PUBLIC KEY-----&#10;…&#10;-----END PUBLIC KEY-----"></textarea>
-            <div class="btn-row">
-              <button class="btn btn-primary" onclick="verifyManual()">Verify</button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div id="verify-result" style="display:none"><div id="verify-result-inner"></div></div>
-      <div class="card">
-        <div class="card-label">Tamper Test Lab</div>
-        <p style="font-size:13px;color:var(--text2);margin-bottom:12px">Modify the signed document then verify — watch it fail.</p>
-        <div class="btn-row">
-          <button class="btn" onclick="loadTamperDoc()">Load last signed</button>
-          <button class="btn btn-danger" id="tamper-btn" onclick="tamperDoc()" disabled>Tamper document</button>
-          <button class="btn btn-primary" id="tamper-verify-btn" onclick="verifyTampered()" disabled>Verify tampered</button>
-        </div>
-        <div id="tamper-preview" style="margin-top:10px"></div>
-        <div id="tamper-status"></div>
-      </div>
-    </div>
-
-    <!-- ══ AES-256-GCM ══ -->
-    <div class="page" id="page-aes">
-      <div class="page-header">
-        <h1>AES-256-GCM Encryption</h1>
-        <p>Symmetric encryption — password → PBKDF2 → AES-256 key → encrypt/decrypt</p>
-      </div>
-
-      <!-- RSA vs AES explainer -->
-      <div class="card">
-        <div class="card-label">RSA vs AES — when to use which</div>
-        <div class="aes-compare">
-          <div class="aes-side rsa">
-            <div class="aes-side-title">RSA-2048 (signatures)</div>
-            <ul>
-              <li>2 keys: private + public</li>
-              <li>Private key signs, public verifies</li>
-              <li>Proves <em>who</em> sent it</li>
-              <li>Slow — used only on small hashes</li>
-              <li>Can't hide content, only authenticate</li>
-            </ul>
-          </div>
-          <div class="aes-side aes">
-            <div class="aes-side-title">AES-256-GCM (encryption)</div>
-            <ul>
-              <li>1 shared secret key</li>
-              <li>Same key encrypts AND decrypts</li>
-              <li>Hides content from others</li>
-              <li>Fast — encrypts any amount of data</li>
-              <li>GCM auth tag detects any tampering</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-
-      <div class="tab-bar">
-        <div class="tab active" id="aes-enc-btn" onclick="switchTab('aes-enc','aes-tabs','aes-enc-btn,aes-dec-btn')">Encrypt</div>
-        <div class="tab" id="aes-dec-btn" onclick="switchTab('aes-dec','aes-tabs','aes-enc-btn,aes-dec-btn')">Decrypt</div>
-      </div>
-
-      <div id="aes-tabs">
-        <!-- ENCRYPT -->
-        <div id="aes-enc">
-          <div class="card">
-            <div class="card-label">Step 1 — Password → Key derivation (PBKDF2)</div>
-            <p style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.6">
-              You enter a human password. We run it through <strong>PBKDF2-SHA256 with 100,000 iterations</strong> to produce a 256-bit AES key. The high iteration count means brute-forcing is slow.
-            </p>
-            <div class="crypto-flow">
-              <div class="flow-box">Password</div>
-              <div class="flow-arrow">→</div>
-              <div class="flow-box highlight-purple">PBKDF2-SHA256</div>
-              <div class="flow-arrow">→</div>
-              <div class="flow-box highlight-teal">256-bit AES Key</div>
-            </div>
-            <label>Password</label>
-            <input type="text" id="aes-enc-pass" placeholder="Enter a strong password…" />
-          </div>
-
-          <div class="card">
-            <div class="card-label">Step 2 — Plaintext</div>
-            <label>Message to encrypt</label>
-            <textarea id="aes-plaintext" rows="4" placeholder="Enter your secret message…"></textarea>
-          </div>
-
-          <div class="card">
-            <div class="card-label">Step 3 — AES-256-GCM Encrypt</div>
-            <p style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.6">
-              A random <strong>12-byte IV (nonce)</strong> is generated each time. Same password + same message = <em>different</em> ciphertext every single run. The <strong>GCM auth tag</strong> (16 bytes) is appended — it detects any tampering of the ciphertext.
-            </p>
-            <div class="crypto-flow">
-              <div class="flow-box highlight-teal">AES-256 Key</div>
-              <div class="flow-arrow">+</div>
-              <div class="flow-box">Random IV</div>
-              <div class="flow-arrow">+</div>
-              <div class="flow-box">Plaintext</div>
-              <div class="flow-arrow">→</div>
-              <div class="flow-box highlight-orange">Ciphertext + Auth Tag</div>
-            </div>
-            <div class="btn-row">
-              <button class="btn btn-primary" onclick="aesEncrypt()">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                Encrypt with AES-256-GCM
-              </button>
-            </div>
-            <div id="aes-enc-status"></div>
-          </div>
-
-          <div id="aes-enc-output" style="display:none">
-            <div class="card">
-              <div class="card-label">Encryption Result</div>
-              <!-- 4-panel detail grid -->
-              <div class="aes-detail-grid">
-                <div class="aes-detail-box detail-purple">
-                  <div class="label">Derived Key</div>
-                  <div class="value">256 bits</div>
-                </div>
-                <div class="aes-detail-box detail-teal">
-                  <div class="label">IV / Nonce</div>
-                  <div class="value">96 bits</div>
-                </div>
-                <div class="aes-detail-box detail-red">
-                  <div class="label">Ciphertext</div>
-                  <div class="value" id="aes-cipher-size">— bytes</div>
-                </div>
-                <div class="aes-detail-box detail-green">
-                  <div class="label">Auth Tag</div>
-                  <div class="value">128 bits</div>
-                </div>
-              </div>
-              <!-- individual fields -->
-              <div style="margin-top:14px">
-                <div class="hash-cell-label" style="margin-bottom:4px;color:var(--purple)">PBKDF2 Salt (random, stored with bundle)</div>
-                <div class="mono-block" id="aes-out-salt" style="max-height:40px">—</div>
-              </div>
-              <div style="margin-top:10px">
-                <div class="hash-cell-label" style="margin-bottom:4px;color:var(--teal)">IV / Nonce (random per encryption)</div>
-                <div class="mono-block" id="aes-out-iv" style="max-height:40px">—</div>
-              </div>
-              <div style="margin-top:10px">
-                <div class="hash-cell-label" style="margin-bottom:4px;color:var(--red)">Ciphertext (meaningless without key + IV)</div>
-                <div class="mono-block" id="aes-out-cipher" style="max-height:60px">—</div>
-              </div>
-              <div style="margin-top:10px">
-                <div class="hash-cell-label" style="margin-bottom:4px;color:var(--orange)">GCM Auth Tag (tamper detection)</div>
-                <div class="mono-block" id="aes-out-tag" style="max-height:40px">—</div>
-              </div>
-              <div class="divider"></div>
-              <div class="hash-cell-label" style="margin-bottom:6px">Full JSON bundle (contains everything needed to decrypt)</div>
-              <div class="mono-block" id="aes-bundle-out" style="max-height:110px">—</div>
-              <div class="btn-row">
-                <button class="btn btn-teal" onclick="copyAesBundle()">Copy bundle</button>
-                <button class="btn" onclick="downloadAesBundle()">Download .json</button>
-                <button class="btn" onclick="autoFillDecrypt()">→ Go to Decrypt</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- DECRYPT -->
-        <div id="aes-dec" style="display:none">
-          <div class="card">
-            <div class="card-label">Decrypt AES-256-GCM bundle</div>
-            <p style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6">
-              Paste the JSON bundle and enter the password. The app re-derives the AES key using the stored salt, then decrypts. <strong>Wrong password = GCM auth tag mismatch = error</strong>. Tampered ciphertext = same error. Both cases are indistinguishable by design.
-            </p>
-            <div class="crypto-flow">
-              <div class="flow-box">Password + Salt</div>
-              <div class="flow-arrow">→</div>
-              <div class="flow-box highlight-purple">PBKDF2</div>
-              <div class="flow-arrow">→</div>
-              <div class="flow-box highlight-teal">AES Key</div>
-              <div class="flow-arrow">+</div>
-              <div class="flow-box">IV</div>
-              <div class="flow-arrow">→</div>
-              <div class="flow-box highlight-green">Plaintext ✓</div>
-            </div>
-            <label>Password</label>
-            <input type="text" id="aes-dec-pass" placeholder="Enter the password used to encrypt…" />
-            <label>Encrypted bundle (JSON)</label>
-            <textarea id="aes-dec-bundle" rows="6" placeholder='{"salt":"…","iv":"…","ciphertext":"…","tag":"…","algorithm":"AES-256-GCM","kdf":"PBKDF2-SHA256-100000"}'></textarea>
-            <div class="btn-row">
-              <button class="btn btn-primary" onclick="aesDecrypt()">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8zM6 1v3M10 1v3M14 1v3"/></svg>
-                Decrypt
-              </button>
-            </div>
-            <div id="aes-dec-status"></div>
-          </div>
-          <div id="aes-dec-output" style="display:none">
-            <div class="card" style="border-color:rgba(16,185,129,0.25);background:rgba(16,185,129,0.02)">
-              <div class="card-label" style="color:var(--green)">Decrypted Plaintext</div>
-              <div class="mono-block" id="aes-plaintext-out" style="color:var(--text);max-height:none;font-size:13px">—</div>
-            </div>
-          </div>
-        </div>
-      </div><!-- end aes-tabs -->
-    </div>
-
-    <!-- ══ MULTI-SIGN ══ -->
-    <div class="page" id="page-multisign">
-      <div class="page-header">
-        <h1>Multi-Party Contract Signing</h1>
-        <p>Each signer independently signs — all verified together</p>
-      </div>
-      <div class="card">
-        <div class="card-label">Contract</div>
-        <textarea id="multi-doc" rows="4">This Agreement is between Alice and Bob.
+<!-- MULTI-SIGN -->
+<div class="page" id="page-multisign">
+<div class="page-header">
+<h1>Multi-Party Contract Signing</h1>
+<p>Each signer independently signs — all verified together</p>
+</div>
+<div class="card">
+<div class="card-label">Contract</div>
+<textarea id="multi-doc" rows="4">This Agreement is between Alice and Bob.
 
 Alice agrees to deliver the software project by June 30, 2026.
 Bob agrees to pay ₹1,00,000 upon successful delivery.</textarea>
-      </div>
-      <div class="card">
-        <div class="card-label">Signatures</div>
-        <div id="multi-signer-list"></div>
-        <div class="btn-row">
-          <button class="btn btn-primary" onclick="addMultiSign()">+ Add my signature</button>
-          <button class="btn btn-teal" onclick="verifyAllMulti()">Verify all</button>
-          <button class="btn" onclick="resetMulti()">Reset</button>
-        </div>
-        <div id="multi-status"></div>
-      </div>
-    </div>
-
-    <!-- ══ LEARN ══ -->
-    <div class="page" id="page-learn">
-      <div class="page-header">
-        <h1>How It Works</h1>
-        <p>Mathematical step-by-step with real numbers and live demos</p>
-      </div>
-
-      <!-- ─── SECTION 1: RSA KEY GENERATION ─── -->
-      <div class="card">
-        <div class="card-label">Part 1 — RSA Key Generation (with small numbers)</div>
-        <p style="font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.8">
-          Real RSA-2048 uses 1024-bit primes (300+ digit numbers). We demonstrate the <strong>exact same math</strong> using small primes so you can verify every step by hand.
-        </p>
-
-        <div class="steps">
-
-          <div class="step">
-            <div class="step-num">1</div>
-            <div>
-              <div class="step-head">Choose two prime numbers p and q</div>
-              <div class="step-desc">Must be prime (only divisible by 1 and themselves). In real RSA-2048 these are ~1024 bits each.</div>
-              <div class="math-block">
-                <div class="math-line"><span class="math-label">Small demo:</span> p = <span class="math-val purple">61</span> &nbsp; q = <span class="math-val purple">53</span></div>
-                <div class="math-line"><span class="math-label">Real RSA:</span> p ≈ <span class="math-val dim">166546190895...1847 (309 digits)</span></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="step">
-            <div class="step-num">2</div>
-            <div>
-              <div class="step-head">Compute n = p × q (the modulus)</div>
-              <div class="step-desc">This is the public modulus. Everyone knows n. But nobody can find p and q back from n — that's the hard problem called integer factorisation.</div>
-              <div class="math-block">
-                <div class="math-line">n = 61 × 53 = <span class="math-val teal">3233</span></div>
-                <div class="math-line"><span class="math-label">Real RSA-2048:</span> n is a <span class="math-val dim">617-digit number</span></div>
-                <div class="math-line math-note">⚠ Breaking RSA = factoring n back into p×q. At 2048 bits this takes longer than the age of the universe with all computers on Earth.</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="step">
-            <div class="step-num">3</div>
-            <div>
-              <div class="step-head">Compute φ(n) = (p−1)(q−1) — Euler's Totient</div>
-              <div class="step-desc">φ(n) counts how many integers from 1 to n share no common factor with n. This number is kept completely secret.</div>
-              <div class="math-block">
-                <div class="math-line">φ(n) = (61−1) × (53−1)</div>
-                <div class="math-line">φ(n) = 60 × 52 = <span class="math-val purple">3120</span></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="step">
-            <div class="step-num">4</div>
-            <div>
-              <div class="step-head">Choose public exponent e = 65537</div>
-              <div class="step-desc">e must be coprime with φ(n) — meaning gcd(e, φ(n)) = 1. The number 65537 is standard because it is prime and makes encryption fast. In our small demo we use e = 17.</div>
-              <div class="math-block">
-                <div class="math-line">e = <span class="math-val teal">17</span> &nbsp; (small demo)</div>
-                <div class="math-line">gcd(17, 3120) = <span class="math-val green">1</span> ✓ &nbsp; (they share no common factor)</div>
-                <div class="math-line"><span class="math-label">Real RSA:</span> e = <span class="math-val teal">65537</span> = 2¹⁶ + 1</div>
-                <div class="math-line math-note">Public Key = (n=3233, e=17)</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="step">
-            <div class="step-num">5</div>
-            <div>
-              <div class="step-head">Compute private exponent d = e⁻¹ mod φ(n)</div>
-              <div class="step-desc">d is the modular inverse of e — the number such that (d × e) mod φ(n) = 1. Computed using the Extended Euclidean Algorithm. This is your private key — never shared.</div>
-              <div class="math-block">
-                <div class="math-line">Find d such that: (d × 17) mod 3120 = 1</div>
-                <div class="math-line">d = <span class="math-val red">2753</span></div>
-                <div class="math-line math-verify">Verify: (2753 × 17) mod 3120 = 46801 mod 3120 = <span class="math-val green">1</span> ✓</div>
-                <div class="math-line math-note">Private Key = (n=3233, d=2753) — NEVER share d</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="step">
-            <div class="step-num">6</div>
-            <div>
-              <div class="step-head">Encrypt (sign) with private key: C = M^d mod n</div>
-              <div class="step-desc">Raise message M to the power of d, modulo n. Only the private key holder can do this. Let's sign message M = 65 (representing a hash byte).</div>
-              <div class="math-block">
-                <div class="math-line">C = 65^<span class="math-val red">2753</span> mod <span class="math-val teal">3233</span></div>
-                <div class="math-line">C = <span class="math-val purple">2790</span> &nbsp; ← this is the signature</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="step">
-            <div class="step-num">7</div>
-            <div>
-              <div class="step-head">Decrypt (verify) with public key: M = C^e mod n</div>
-              <div class="step-desc">Anyone with the public key raises the signature C to power e mod n. They get back the original message M. The math guarantees this works only because d and e are modular inverses.</div>
-              <div class="math-block">
-                <div class="math-line">M = 2790^<span class="math-val teal">17</span> mod <span class="math-val teal">3233</span></div>
-                <div class="math-line">M = <span class="math-val green">65</span> ✓ &nbsp; ← original message recovered</div>
-                <div class="math-line math-note">This works because: (M^d)^e ≡ M^(d×e) ≡ M^1 ≡ M (mod n) — by Euler's theorem</div>
-              </div>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- Interactive RSA demo -->
-        <div style="margin-top:1.5rem;padding:1rem;background:var(--bg3);border-radius:8px;border:1px solid var(--border2)">
-          <div style="font-size:11px;font-family:var(--mono);color:var(--text3);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.08em">Interactive — try your own numbers</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px">
-            <div>
-              <div style="font-size:10px;font-family:var(--mono);color:var(--text2);margin-bottom:4px">Prime p</div>
-              <input type="number" id="rsa-p" value="61" min="2" style="width:100%;padding:6px;font-family:var(--mono);font-size:12px;background:var(--bg2);border:1px solid var(--border2);border-radius:4px;color:var(--text)" oninput="calcRSA()" />
-            </div>
-            <div>
-              <div style="font-size:10px;font-family:var(--mono);color:var(--text2);margin-bottom:4px">Prime q</div>
-              <input type="number" id="rsa-q" value="53" min="2" style="width:100%;padding:6px;font-family:var(--mono);font-size:12px;background:var(--bg2);border:1px solid var(--border2);border-radius:4px;color:var(--text)" oninput="calcRSA()" />
-            </div>
-            <div>
-              <div style="font-size:10px;font-family:var(--mono);color:var(--text2);margin-bottom:4px">Exponent e</div>
-              <input type="number" id="rsa-e" value="17" min="2" style="width:100%;padding:6px;font-family:var(--mono);font-size:12px;background:var(--bg2);border:1px solid var(--border2);border-radius:4px;color:var(--text)" oninput="calcRSA()" />
-            </div>
-            <div>
-              <div style="font-size:10px;font-family:var(--mono);color:var(--text2);margin-bottom:4px">Message M</div>
-              <input type="number" id="rsa-m" value="65" min="1" style="width:100%;padding:6px;font-family:var(--mono);font-size:12px;background:var(--bg2);border:1px solid var(--border2);border-radius:4px;color:var(--text)" oninput="calcRSA()" />
-            </div>
-          </div>
-          <div class="mono-block" id="rsa-calc-out" style="max-height:none;font-size:11px;line-height:2">—</div>
-        </div>
-      </div>
-
-      <!-- ─── SECTION 2: SHA-256 ─── -->
-      <div class="card">
-        <div class="card-label">Part 2 — SHA-256 Hashing (avalanche effect demo)</div>
-        <p style="font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.8">
-          SHA-256 internally runs <strong>64 rounds</strong> of bitwise operations (AND, OR, XOR, rotate) on 512-bit message blocks. The output is always exactly 256 bits (64 hex characters). It is a one-way function — you cannot reverse it.
-        </p>
-
-        <div class="steps">
-          <div class="step">
-            <div class="step-num">1</div>
-            <div>
-              <div class="step-head">Pre-processing — pad the message to 512-bit blocks</div>
-              <div class="step-desc">The message bytes are padded: append a 1 bit, then zeros, then the 64-bit length. This ensures the input always fits exactly into 512-bit blocks.</div>
-              <div class="math-block">
-                <div class="math-line">"Hi" = 0x48 0x69 → pad → <span class="math-val dim">48 69 80 00 00...00 00 00 00 10</span></div>
-                <div class="math-line math-note">The 0x80 = appended 1-bit. Final 8 bytes = message length in bits (16 bits = 0x10)</div>
-              </div>
-            </div>
-          </div>
-          <div class="step">
-            <div class="step-num">2</div>
-            <div>
-              <div class="step-head">Initialise 8 hash values h₀…h₇</div>
-              <div class="step-desc">These are fixed constants derived from the fractional parts of square roots of the first 8 primes (2,3,5,7,11,13,17,19).</div>
-              <div class="math-block">
-                <div class="math-line">h₀ = <span class="math-val purple">6a09e667</span> &nbsp; h₁ = <span class="math-val purple">bb67ae85</span></div>
-                <div class="math-line">h₂ = <span class="math-val purple">3c6ef372</span> &nbsp; h₃ = <span class="math-val purple">a54ff53a</span></div>
-                <div class="math-line">h₄ = <span class="math-val purple">510e527f</span> &nbsp; h₅ = <span class="math-val purple">9b05688c</span></div>
-                <div class="math-line">h₆ = <span class="math-val purple">1f83d9ab</span> &nbsp; h₇ = <span class="math-val purple">5be0cd19</span></div>
-              </div>
-            </div>
-          </div>
-          <div class="step">
-            <div class="step-num">3</div>
-            <div>
-              <div class="step-head">64 rounds of compression per block</div>
-              <div class="step-desc">Each round uses bitwise operations on the 8 working variables a,b,c,d,e,f,g,h plus a round constant K and a message schedule word W.</div>
-              <div class="math-block">
-                <div class="math-line">Σ₁(e) = ROTR²⁵(e) XOR ROTR¹¹(e) XOR ROTR⁶(e)</div>
-                <div class="math-line">Ch(e,f,g) = (e AND f) XOR (NOT e AND g)</div>
-                <div class="math-line">T₁ = h + Σ₁(e) + Ch(e,f,g) + K[i] + W[i]</div>
-                <div class="math-line">T₂ = Σ₀(a) + Maj(a,b,c)</div>
-                <div class="math-line math-note">After 64 rounds: add compressed values back to h₀…h₇, repeat for next block</div>
-              </div>
-            </div>
-          </div>
-          <div class="step">
-            <div class="step-num">4</div>
-            <div>
-              <div class="step-head">Final hash = concatenate h₀…h₇</div>
-              <div class="step-desc">The 8 final 32-bit values concatenated give the 256-bit (64 hex character) hash. The avalanche effect: changing one input bit flips ~128 output bits on average.</div>
-              <div class="math-block">
-                <div class="math-line">"Hello" → <span class="math-val teal">185f8db3...7fd2dbc0</span> (64 chars)</div>
-                <div class="math-line">"hello" → <span class="math-val red">2cf24dba...0e1f0d68</span> (64 chars)</div>
-                <div class="math-line math-note">One capital letter changed → completely different 256-bit output (avalanche effect)</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- live SHA-256 with byte breakdown -->
-        <div style="margin-top:1.5rem">
-          <label>Type anything — watch SHA-256 update live</label>
-          <textarea id="live-input" rows="2" oninput="updateLiveHash()" placeholder="Type here…">Hello World</textarea>
-          <div style="margin-top:12px">
-            <div style="font-size:10px;font-family:var(--mono);color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.08em">SHA-256 output (64 hex chars = 32 bytes = 256 bits)</div>
-            <div class="mono-block" id="live-hash-out" style="max-height:none;color:var(--teal);font-size:13px;letter-spacing:0.05em">—</div>
-            <div class="hash-vis" id="live-hash-vis" style="margin-top:10px"></div>
-            <div style="font-size:10px;font-family:var(--mono);color:var(--text3);margin-top:6px">32 colored cells = 32 bytes of the hash · color = byte value mapped to hue (0→red, 128→green, 255→blue)</div>
-          </div>
-          <!-- avalanche demo -->
-          <div style="margin-top:16px;padding:1rem;background:var(--bg3);border-radius:8px;border:1px solid var(--border2)">
-            <div style="font-size:11px;font-family:var(--mono);color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.08em">Avalanche Effect — compare two similar inputs</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-              <div>
-                <div style="font-size:10px;font-family:var(--mono);color:var(--text2);margin-bottom:4px">Input A</div>
-                <input type="text" id="av-a" value="Hello" oninput="updateAvalanche()" style="width:100%;padding:6px 8px;font-family:var(--mono);font-size:12px;background:var(--bg2);border:1px solid var(--border2);border-radius:4px;color:var(--text)" />
-                <div class="mono-block" id="av-hash-a" style="margin-top:6px;max-height:40px;font-size:10px;color:var(--purple)">—</div>
-              </div>
-              <div>
-                <div style="font-size:10px;font-family:var(--mono);color:var(--text2);margin-bottom:4px">Input B (change one character)</div>
-                <input type="text" id="av-b" value="hello" oninput="updateAvalanche()" style="width:100%;padding:6px 8px;font-family:var(--mono);font-size:12px;background:var(--bg2);border:1px solid var(--border2);border-radius:4px;color:var(--text)" />
-                <div class="mono-block" id="av-hash-b" style="margin-top:6px;max-height:40px;font-size:10px;color:var(--red)">—</div>
-              </div>
-            </div>
-            <div id="av-diff" style="margin-top:10px;font-size:12px;font-family:var(--mono);color:var(--text2)">—</div>
-            <div class="hash-vis" id="av-vis-diff" style="margin-top:8px"></div>
-            <div style="font-size:10px;font-family:var(--mono);color:var(--text3);margin-top:4px">Green cell = byte is the SAME in both hashes · Red cell = byte is DIFFERENT</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ─── SECTION 3: AES-256-GCM ─── -->
-      <div class="card">
-        <div class="card-label">Part 3 — AES-256-GCM Encryption (step by step)</div>
-        <p style="font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.8">
-          AES operates on a 4×4 grid of bytes called a <strong>state</strong>. It runs 14 rounds of 4 transformations for AES-256. GCM mode adds authentication on top.
-        </p>
-
-        <div class="steps">
-          <div class="step">
-            <div class="step-num">1</div>
-            <div>
-              <div class="step-head">Key Expansion — one 256-bit key becomes 15 round keys</div>
-              <div class="step-desc">The 32-byte (256-bit) AES key is expanded into 15 separate 128-bit round keys using a Key Schedule. Each round uses a different key.</div>
-              <div class="math-block">
-                <div class="math-line">Original key (256 bits): <span class="math-val purple">2b7e151628aed2a6abf71588...</span></div>
-                <div class="math-line">Round key 0: <span class="math-val teal">2b7e1516 28aed2a6 abf71588 09cf4f3c</span></div>
-                <div class="math-line">Round key 1: <span class="math-val teal">a0fafe17 88542cb1 23a33939 2a6c7605</span></div>
-                <div class="math-line math-note">…14 round keys total for AES-256</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="step">
-            <div class="step-num">2</div>
-            <div>
-              <div class="step-head">AddRoundKey — XOR the state with the round key</div>
-              <div class="step-desc">The 16-byte plaintext block is arranged into a 4×4 state matrix. XOR each byte with the corresponding byte of the round key. XOR is reversible — that's what makes decryption possible.</div>
-              <div class="math-block">
-                <div class="math-line">Plaintext byte: <span class="math-val purple">0x32</span> &nbsp; Key byte: <span class="math-val teal">0x2b</span></div>
-                <div class="math-line">0x32 XOR 0x2b = <span class="math-val green">0x19</span></div>
-                <div class="math-line math-note">0011 0010 XOR 0010 1011 = 0001 1001 = 0x19</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="step">
-            <div class="step-num">3</div>
-            <div>
-              <div class="step-head">SubBytes — substitute each byte using S-Box</div>
-              <div class="step-desc">Every byte in the state is replaced using a fixed 256-entry lookup table called the S-Box (Substitution Box). This provides non-linearity — without it, AES would be breakable by linear algebra.</div>
-              <div class="math-block">
-                <div class="math-line">Input byte: <span class="math-val purple">0x53</span></div>
-                <div class="math-line">S-Box[0x53] = <span class="math-val teal">0xed</span></div>
-                <div class="math-line">Input byte: <span class="math-val purple">0x00</span> → S-Box[0x00] = <span class="math-val teal">0x63</span></div>
-                <div class="math-line math-note">S-Box is constructed using multiplicative inverse in GF(2⁸) — Galois Field arithmetic</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="step">
-            <div class="step-num">4</div>
-            <div>
-              <div class="step-head">ShiftRows — rotate each row of the state matrix</div>
-              <div class="step-desc">The 4×4 state is treated as 4 rows. Row 0 stays. Row 1 shifts left by 1. Row 2 shifts left by 2. Row 3 shifts left by 3. This mixes bytes across columns.</div>
-              <div class="math-block">
-                <div class="math-line">Before: [a0 a1 a2 a3] [b0 b1 b2 b3] [c0 c1 c2 c3] [d0 d1 d2 d3]</div>
-                <div class="math-line">After:  [a0 a1 a2 a3] [<span class="math-val teal">b1 b2 b3 b0</span>] [<span class="math-val purple">c2 c3 c0 c1</span>] [<span class="math-val red">d3 d0 d1 d2</span>]</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="step">
-            <div class="step-num">5</div>
-            <div>
-              <div class="step-head">MixColumns — multiply each column by a matrix in GF(2⁸)</div>
-              <div class="step-desc">Each 4-byte column is multiplied by a fixed matrix using Galois Field arithmetic. This provides diffusion — each output byte depends on all 4 input bytes of the column.</div>
-              <div class="math-block">
-                <div class="math-line">Column [a, b, c, d] becomes:</div>
-                <div class="math-line">new_a = 2a XOR 3b XOR c XOR d</div>
-                <div class="math-line">new_b = a XOR 2b XOR 3c XOR d</div>
-                <div class="math-line">new_c = a XOR b XOR 2c XOR 3d</div>
-                <div class="math-line">new_d = 3a XOR b XOR c XOR 2d</div>
-                <div class="math-line math-note">"Multiply by 2" in GF(2⁸) = left shift + conditional XOR with 0x1b if overflow</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="step">
-            <div class="step-num">6</div>
-            <div>
-              <div class="step-head">Repeat 14 rounds, then GCM authentication tag</div>
-              <div class="step-desc">Steps 2–5 repeat 14 times (AES-256). GCM mode then uses GHASH — a polynomial multiplication over GF(2¹²⁸) — to compute a 128-bit authentication tag over the ciphertext. This tag detects any tampering.</div>
-              <div class="math-block">
-                <div class="math-line">GHASH(H, A, C) = <span class="math-val teal">128-bit auth tag</span></div>
-                <div class="math-line">H = AES_K(0¹²⁸) &nbsp; (encrypt a block of zeros with the key)</div>
-                <div class="math-line math-note">If even 1 bit of ciphertext is flipped → completely different tag → decryption throws error</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Live AES demo -->
-        <div style="margin-top:1.5rem;padding:1rem;background:var(--bg3);border-radius:8px;border:1px solid var(--border2)">
-          <div style="font-size:11px;font-family:var(--mono);color:var(--text3);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.08em">Interactive — see AES-256-GCM encrypt in real time</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-            <div>
-              <div style="font-size:10px;font-family:var(--mono);color:var(--text2);margin-bottom:4px">Plaintext</div>
-              <input type="text" id="aes-demo-plain" value="Hello" oninput="updateAesDemo()" style="width:100%;padding:6px 8px;font-family:var(--mono);font-size:12px;background:var(--bg2);border:1px solid var(--border2);border-radius:4px;color:var(--text)" />
-            </div>
-            <div>
-              <div style="font-size:10px;font-family:var(--mono);color:var(--text2);margin-bottom:4px">Password</div>
-              <input type="text" id="aes-demo-pass" value="mypassword" oninput="updateAesDemo()" style="width:100%;padding:6px 8px;font-family:var(--mono);font-size:12px;background:var(--bg2);border:1px solid var(--border2);border-radius:4px;color:var(--text)" />
-            </div>
-          </div>
-          <div class="mono-block" id="aes-demo-out" style="max-height:none;font-size:11px;line-height:2">Click Encrypt to see the output</div>
-          <div class="btn-row" style="margin-top:10px">
-            <button class="btn btn-primary" onclick="updateAesDemo(true)">Encrypt and show components</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- ─── SECTION 4: PBKDF2 ─── -->
-      <div class="card">
-        <div class="card-label">Part 4 — PBKDF2 Key Derivation (password → key)</div>
-        <p style="font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.8">
-          A human password like "hello123" is weak — only ~40 bits of entropy. PBKDF2 stretches it into a strong 256-bit AES key by running SHA-256 <strong>100,000 times</strong>.
-        </p>
-        <div class="steps">
-          <div class="step">
-            <div class="step-num">1</div>
-            <div>
-              <div class="step-head">PBKDF2(password, salt, iterations, keylen)</div>
-              <div class="step-desc">Password and salt are fed into HMAC-SHA256. The output is fed back as input. This is repeated 100,000 times. The final output is the AES key.</div>
-              <div class="math-block">
-                <div class="math-line">U₁ = HMAC-SHA256(password, salt || 0x00000001)</div>
-                <div class="math-line">U₂ = HMAC-SHA256(password, U₁)</div>
-                <div class="math-line">U₃ = HMAC-SHA256(password, U₂)</div>
-                <div class="math-line">… repeat 100,000 times …</div>
-                <div class="math-line">Key = U₁ XOR U₂ XOR U₃ XOR … XOR U₁₀₀₀₀₀</div>
-              </div>
-            </div>
-          </div>
-          <div class="step">
-            <div class="step-num">2</div>
-            <div>
-              <div class="step-head">Why 100,000 iterations?</div>
-              <div class="step-desc">An attacker trying to brute-force your password must run PBKDF2 for every guess. 100,000 iterations means each guess takes ~0.1 seconds on modern hardware.</div>
-              <div class="math-block">
-                <div class="math-line">Passwords to try: 100,000,000 (common passwords list)</div>
-                <div class="math-line">Without PBKDF2: <span class="math-val red">~0.001s per guess → cracked in 27 hours</span></div>
-                <div class="math-line">With PBKDF2 × 100k: <span class="math-val green">~0.1s per guess → cracked in 270,000 hours</span></div>
-                <div class="math-line math-note">The salt prevents precomputed rainbow table attacks — same password, different salt = completely different key</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-    </div>
-
-  </main>
+</div>
+<div class="card">
+<div class="card-label">Signatures</div>
+<div id="multi-signer-list"></div>
+<div class="btn-row">
+<button class="btn btn-primary" onclick="addMultiSign()">+ Add my signature</button>
+<button class="btn btn-teal" onclick="verifyAllMulti()">Verify all</button>
+<button class="btn" onclick="resetMulti()">Reset</button>
+</div>
+<div id="multi-status"></div>
+</div>
 </div>
 
-<script>// ═══════════════════════════════════════════════════════════════
-//  STATE
-// ═══════════════════════════════════════════════════════════════
+<!-- LEARN / HOW IT WORKS -->
+<div class="page" id="page-learn">
+<div class="page-header">
+<h1>How It Works</h1>
+<p>Mathematical step-by-step with real numbers and live demos</p>
+</div>
+
+<div class="card">
+<div class="card-label">Part 1 — RSA Key Generation</div>
+<p style="font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.8">
+Real RSA-2048 uses 1024-bit primes. We demonstrate the exact same math using small primes so you can verify every step by hand.
+</p>
+<div class="steps">
+<div class="step">
+<div class="step-num">1</div>
+<div>
+<div class="step-head">Choose two primes p and q</div>
+<div class="step-desc">Must be prime (only divisible by 1 and themselves).</div>
+<div class="math-block">
+<div class="math-line">p = <span class="math-val purple">61</span> &nbsp; q = <span class="math-val purple">53</span></div>
+</div>
+</div>
+</div>
+<div class="step">
+<div class="step-num">2</div>
+<div>
+<div class="step-head">Compute n = p × q (the modulus)</div>
+<div class="step-desc">This is the public modulus. Nobody can find p and q back from n — integer factorisation is hard.</div>
+<div class="math-block">
+<div class="math-line">n = 61 × 53 = <span class="math-val teal">3233</span></div>
+</div>
+</div>
+</div>
+<div class="step">
+<div class="step-num">3</div>
+<div>
+<div class="step-head">Compute φ(n) = (p−1)(q−1)</div>
+<div class="math-block">
+<div class="math-line">φ(n) = 60 × 52 = <span class="math-val purple">3120</span></div>
+</div>
+</div>
+</div>
+<div class="step">
+<div class="step-num">4</div>
+<div>
+<div class="step-head">Choose public exponent e</div>
+<div class="math-block">
+<div class="math-line">e = <span class="math-val teal">17</span> &nbsp; (real RSA uses 65537)</div>
+<div class="math-line">gcd(17, 3120) = <span class="math-val green">1</span> ✓</div>
+</div>
+</div>
+</div>
+<div class="step">
+<div class="step-num">5</div>
+<div>
+<div class="step-head">Compute private exponent d = e⁻¹ mod φ(n)</div>
+<div class="math-block">
+<div class="math-line">d = <span class="math-val red">2753</span></div>
+<div class="math-verify math-line">Verify: (2753 × 17) mod 3120 = <span class="math-val green">1</span> ✓</div>
+</div>
+</div>
+</div>
+<div class="step">
+<div class="step-num">6</div>
+<div>
+<div class="step-head">Sign: C = M^d mod n</div>
+<div class="math-block">
+<div class="math-line">C = 65^2753 mod 3233 = <span class="math-val purple">2790</span></div>
+</div>
+</div>
+</div>
+<div class="step">
+<div class="step-num">7</div>
+<div>
+<div class="step-head">Verify: M = C^e mod n</div>
+<div class="math-block">
+<div class="math-line">M = 2790^17 mod 3233 = <span class="math-val green">65</span> ✓</div>
+</div>
+</div>
+</div>
+</div>
+<div style="margin-top:1.5rem;padding:1rem;background:var(--bg3);border-radius:8px;border:1px solid var(--border2)">
+<div style="font-size:11px;font-family:var(--mono);color:var(--text3);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.08em">Interactive — try your own numbers</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+<div>
+<div style="font-size:10px;font-family:var(--mono);color:var(--text2);margin-bottom:4px">Prime p</div>
+<input type="number" id="rsa-p" value="61" min="2" style="width:100%;padding:6px;font-family:var(--mono);font-size:12px;background:var(--bg2);border:1px solid var(--border2);border-radius:4px;color:var(--text)" oninput="calcRSA()" />
+</div>
+<div>
+<div style="font-size:10px;font-family:var(--mono);color:var(--text2);margin-bottom:4px">Prime q</div>
+<input type="number" id="rsa-q" value="53" min="2" style="width:100%;padding:6px;font-family:var(--mono);font-size:12px;background:var(--bg2);border:1px solid var(--border2);border-radius:4px;color:var(--text)" oninput="calcRSA()" />
+</div>
+<div>
+<div style="font-size:10px;font-family:var(--mono);color:var(--text2);margin-bottom:4px">Exponent e</div>
+<input type="number" id="rsa-e" value="17" min="2" style="width:100%;padding:6px;font-family:var(--mono);font-size:12px;background:var(--bg2);border:1px solid var(--border2);border-radius:4px;color:var(--text)" oninput="calcRSA()" />
+</div>
+<div>
+<div style="font-size:10px;font-family:var(--mono);color:var(--text2);margin-bottom:4px">Message M</div>
+<input type="number" id="rsa-m" value="65" min="1" style="width:100%;padding:6px;font-family:var(--mono);font-size:12px;background:var(--bg2);border:1px solid var(--border2);border-radius:4px;color:var(--text)" oninput="calcRSA()" />
+</div>
+</div>
+<div class="mono-block" id="rsa-calc-out" style="max-height:none;font-size:11px;line-height:2">—</div>
+</div>
+</div>
+
+<div class="card">
+<div class="card-label">Part 2 — SHA-256 Hashing (avalanche effect)</div>
+<div style="margin-top:0.5rem">
+<label>Type anything — watch SHA-256 update live</label>
+<textarea id="live-input" rows="2" oninput="updateLiveHash()" placeholder="Type here…">Hello World</textarea>
+<div style="margin-top:12px">
+<div style="font-size:10px;font-family:var(--mono);color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.08em">SHA-256 output (64 hex chars = 256 bits)</div>
+<div class="mono-block" id="live-hash-out" style="max-height:none;color:var(--teal);font-size:13px;letter-spacing:0.05em">—</div>
+<div class="hash-vis" id="live-hash-vis" style="margin-top:10px"></div>
+</div>
+<div style="margin-top:16px;padding:1rem;background:var(--bg3);border-radius:8px;border:1px solid var(--border2)">
+<div style="font-size:11px;font-family:var(--mono);color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.08em">Avalanche Effect</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+<div>
+<div style="font-size:10px;font-family:var(--mono);color:var(--text2);margin-bottom:4px">Input A</div>
+<input type="text" id="av-a" value="Hello" oninput="updateAvalanche()" style="width:100%;padding:6px 8px;font-family:var(--mono);font-size:12px;background:var(--bg2);border:1px solid var(--border2);border-radius:4px;color:var(--text)" />
+<div class="mono-block" id="av-hash-a" style="margin-top:6px;max-height:40px;font-size:10px;color:var(--purple)">—</div>
+</div>
+<div>
+<div style="font-size:10px;font-family:var(--mono);color:var(--text2);margin-bottom:4px">Input B</div>
+<input type="text" id="av-b" value="hello" oninput="updateAvalanche()" style="width:100%;padding:6px 8px;font-family:var(--mono);font-size:12px;background:var(--bg2);border:1px solid var(--border2);border-radius:4px;color:var(--text)" />
+<div class="mono-block" id="av-hash-b" style="margin-top:6px;max-height:40px;font-size:10px;color:var(--red)">—</div>
+</div>
+</div>
+<div id="av-diff" style="margin-top:10px;font-size:12px;font-family:var(--mono);color:var(--text2)">—</div>
+<div class="hash-vis" id="av-vis-diff" style="margin-top:8px"></div>
+<div style="font-size:10px;font-family:var(--mono);color:var(--text3);margin-top:4px">Green = same byte · Red = different byte</div>
+</div>
+</div>
+</div>
+
+<div class="card">
+<div class="card-label">Part 3 — AES-256-GCM Live Demo</div>
+<div style="padding:1rem;background:var(--bg3);border-radius:8px;border:1px solid var(--border2)">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+<div>
+<div style="font-size:10px;font-family:var(--mono);color:var(--text2);margin-bottom:4px">Plaintext</div>
+<input type="text" id="aes-demo-plain" value="Hello" style="width:100%;padding:6px 8px;font-family:var(--mono);font-size:12px;background:var(--bg2);border:1px solid var(--border2);border-radius:4px;color:var(--text)" />
+</div>
+<div>
+<div style="font-size:10px;font-family:var(--mono);color:var(--text2);margin-bottom:4px">Password</div>
+<input type="text" id="aes-demo-pass" value="mypassword" style="width:100%;padding:6px 8px;font-family:var(--mono);font-size:12px;background:var(--bg2);border:1px solid var(--border2);border-radius:4px;color:var(--text)" />
+</div>
+</div>
+<div class="mono-block" id="aes-demo-out" style="max-height:none;font-size:11px;line-height:2">Click Encrypt to see output</div>
+<div class="btn-row" style="margin-top:10px">
+<button class="btn btn-primary" onclick="updateAesDemo(true)">Encrypt and show components</button>
+</div>
+</div>
+</div>
+</div>
+
+</main>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════
 const S = {
-  keys: [],
-  lastBundle: null,
-  multiSigs: [],
-  tamperBundle: null,
-  fileContent: null,
-  aesBundle: null,
-  encBundle: null,
+keys: [], lastBundle: null, multiSigs: [],
+tamperBundle: null, fileContent: null, aesBundle: null, encBundle: null,
 };
 
-// ═══════════════════════════════════════════════════════════════
-//  ENCODING HELPERS
-// ═══════════════════════════════════════════════════════════════
-const bytesToHex = (buf) =>
-  Array.from(new Uint8Array(buf))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+// ═══════════════════════════════════════════════════
+// ENCODING HELPERS
+// ═══════════════════════════════════════════════════
+function bytesToHex(buf) {
+return Array.from(buf instanceof Uint8Array ? buf : new Uint8Array(buf))
+.map(b => b.toString(16).padStart(2,'0')).join('');
+}
 function hexToBytes(hex) {
-  const a = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < hex.length; i += 2) a[i / 2] = parseInt(hex.substr(i, 2), 16);
-  return a;
+if (!hex || hex.length === 0) return new Uint8Array(0);
+if (hex.length % 2 !== 0) hex = '0' + hex;
+const a = new Uint8Array(hex.length / 2);
+for (let i = 0; i < hex.length; i += 2)
+a[i/2] = parseInt(hex.substr(i,2), 16);
+return a;
 }
-function strToBytes(s) {
-  return new TextEncoder().encode(s);
+function strToBytes(s) { return new TextEncoder().encode(s); }
+function bytesToStr(b) { return new TextDecoder().decode(b); }
+function ab2b64(buf) {//converts raw bytes to base 64 string
+let s = '';
+new Uint8Array(buf).forEach(b => s += String.fromCharCode(b));
+return btoa(s);
 }
-function bytesToStr(b) {
-  return new TextDecoder().decode(b);
-}
-function ab2b64(buf) {
-  let s = "";
-  new Uint8Array(buf).forEach((b) => (s += String.fromCharCode(b)));
-  return btoa(s);
-}
-function b642ab(b64) {
-  const s = atob(b64);
-  const b = new Uint8Array(s.length);
-  for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i);
-  return b.buffer;
+function b642ab(b64) {//64 to raw bytes
+const s = atob(b64);
+const b = new Uint8Array(s.length);
+for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i);
+return b.buffer;
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  SHA-256  pure JavaScript  FIPS 180-4
-//  64 rounds of bitwise compression on 512-bit blocks
-// ═══════════════════════════════════════════════════════════════
+// FIXED: safe BigInt conversion — never passes empty/bare "0x" to BigInt()
+function bytesToBigInt(bytes) {//bytes to big integer number, used in rsa to generate long integer prime numbers
+if (!bytes || bytes.length === 0) return 0n;
+const hex = bytesToHex(bytes);
+if (!hex || hex.length === 0) return 0n;
+return BigInt('0x' + hex);
+}
+
+// FIXED: safe bigint → fixed-length bytes
+function bigIntToBytes(n, len) {// reverse of above, converts big integer back to bytes, ensuring it fits in specified length (padding or truncating as needed)
+if (n === 0n) return new Uint8Array(len);
+let hex = n.toString(16);
+if (hex.length % 2 !== 0) hex = '0' + hex;
+const b = hexToBytes(hex);
+const o = new Uint8Array(len);
+if (b.length <= len) {
+o.set(b, len - b.length);
+} else {
+// truncate leading bytes if oversized (shouldn't happen in correct RSA)
+o.set(b.slice(b.length - len));
+}
+return o;
+}
+
+// ═══════════════════════════════════════════════════
+// SHA-256 — pure JS FIPS 180-4
+// ═══════════════════════════════════════════════════
 const SHA256_K = [
-  0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
-  0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
-  0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
-  0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
-  0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
-  0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
-  0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
-  0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2,
 ];
-const SHA256_H0 = [
-  0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
-];
-function rotr32(x, n) {
-  return ((x >>> n) | (x << (32 - n))) >>> 0;
+const SHA256_H0 = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+function rotr32(x,n){ return ((x>>>n)|(x<<(32-n)))>>>0; }//rotate 32 bit number by n positions to the right, used in sha256 compression function
+function sha256Block(H, M) {//runs 64 rounds of compression on a 512-bit block M (16 32-bit words) and current hash state H (8 32-bit words), returns new hash state
+const W = new Uint32Array(64);
+for (let i=0;i<16;i++) W[i]=M[i];
+for (let i=16;i<64;i++) {
+const s0=(rotr32(W[i-15],7)^rotr32(W[i-15],18)^(W[i-15]>>>3))>>>0;
+const s1=(rotr32(W[i-2],17)^rotr32(W[i-2],19)^(W[i-2]>>>10))>>>0;
+W[i]=(W[i-16]+s0+W[i-7]+s1)>>>0;
 }
-function sha256Block(H, M) {
-  const W = new Uint32Array(64);
-  for (let i = 0; i < 16; i++) W[i] = M[i];
-  for (let i = 16; i < 64; i++) {
-    const s0 = (rotr32(W[i - 15], 7) ^ rotr32(W[i - 15], 18) ^ (W[i - 15] >>> 3)) >>> 0;
-    const s1 = (rotr32(W[i - 2], 17) ^ rotr32(W[i - 2], 19) ^ (W[i - 2] >>> 10)) >>> 0;
-    W[i] = (W[i - 16] + s0 + W[i - 7] + s1) >>> 0;
-  }
-  let [a, b, c, d, e, f, g, h] = [...H];
-  for (let i = 0; i < 64; i++) {
-    const S1 = (rotr32(e, 6) ^ rotr32(e, 11) ^ rotr32(e, 25)) >>> 0;
-    const ch = ((e & f) ^ (~e & g)) >>> 0;
-    const t1 = (h + S1 + ch + SHA256_K[i] + W[i]) >>> 0;
-    const S0 = (rotr32(a, 2) ^ rotr32(a, 13) ^ rotr32(a, 22)) >>> 0;
-    const maj = ((a & b) ^ (a & c) ^ (b & c)) >>> 0;
-    const t2 = (S0 + maj) >>> 0;
-    h = g;
-    g = f;
-    f = e;
-    e = (d + t1) >>> 0;
-    d = c;
-    c = b;
-    b = a;
-    a = (t1 + t2) >>> 0;
-  }
-  return [
-    (H[0] + a) >>> 0,
-    (H[1] + b) >>> 0,
-    (H[2] + c) >>> 0,
-    (H[3] + d) >>> 0,
-    (H[4] + e) >>> 0,
-    (H[5] + f) >>> 0,
-    (H[6] + g) >>> 0,
-    (H[7] + h) >>> 0,
-  ];
+let [a,b,c,d,e,f,g,h]=[...H];
+for (let i=0;i<64;i++) {
+const S1=(rotr32(e,6)^rotr32(e,11)^rotr32(e,25))>>>0;
+const ch=((e&f)^(~e&g))>>>0;
+const t1=(h+S1+ch+SHA256_K[i]+W[i])>>>0;
+const S0=(rotr32(a,2)^rotr32(a,13)^rotr32(a,22))>>>0;
+const maj=((a&b)^(a&c)^(b&c))>>>0;
+const t2=(S0+maj)>>>0;
+h=g;g=f;f=e;e=(d+t1)>>>0;d=c;c=b;b=a;a=(t1+t2)>>>0;
 }
-function sha256(data) {
-  const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
-  const bitLen = bytes.length * 8;
-  const padLen = bytes.length % 64 < 56 ? 56 - (bytes.length % 64) : 120 - (bytes.length % 64);
-  const padded = new Uint8Array(bytes.length + padLen + 8);
-  padded.set(bytes);
-  padded[bytes.length] = 0x80;
-  const dv = new DataView(padded.buffer);
-  dv.setUint32(padded.length - 4, bitLen >>> 0, false);
-  dv.setUint32(padded.length - 8, Math.floor(bitLen / 0x100000000), false);
-  let H = [...SHA256_H0];
-  for (let o = 0; o < padded.length; o += 64) {
-    const bl = new Uint32Array(16);
-    for (let i = 0; i < 16; i++) bl[i] = dv.getUint32(o + i * 4, false);
-    H = sha256Block(H, bl);
-  }
-  const dig = new Uint8Array(32);
-  const odv = new DataView(dig.buffer);
-  H.forEach((v, i) => odv.setUint32(i * 4, v, false));
-  return dig;
+return [(H[0]+a)>>>0,(H[1]+b)>>>0,(H[2]+c)>>>0,(H[3]+d)>>>0,
+(H[4]+e)>>>0,(H[5]+f)>>>0,(H[6]+g)>>>0,(H[7]+h)>>>0];
 }
-function hmacSha256(key, data) {
-  const BL = 64;
-  let k = key.length > BL ? sha256(key) : key;
-  const kp = new Uint8Array(BL);
-  kp.set(k);
-  const ip = new Uint8Array(BL),
-    op = new Uint8Array(BL);
-  for (let i = 0; i < BL; i++) {
-    ip[i] = kp[i] ^ 0x36;
-    op[i] = kp[i] ^ 0x5c;
-  }
-  const inner = new Uint8Array(BL + data.length);
-  inner.set(ip);
-  inner.set(data, BL);
-  const outer = new Uint8Array(BL + 32);
-  outer.set(op);
-  outer.set(sha256(inner), BL);
-  return sha256(outer);
+function sha256(data) {// does all the main sha-256 steps: padding the input, parsing into blocks, and running the compression function on each block, returning the final 32-byte hash(256 bit)
+const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+const bitLen = bytes.length * 8;
+const padLen = bytes.length%64<56 ? 56-(bytes.length%64) : 120-(bytes.length%64);
+const padded = new Uint8Array(bytes.length+padLen+8);
+padded.set(bytes);
+padded[bytes.length]=0x80;
+const dv=new DataView(padded.buffer);
+dv.setUint32(padded.length-4,bitLen>>>0,false);
+dv.setUint32(padded.length-8,Math.floor(bitLen/0x100000000),false);
+let H=[...SHA256_H0];
+for (let o=0;o<padded.length;o+=64) {
+const bl=new Uint32Array(16);
+for (let i=0;i<16;i++) bl[i]=dv.getUint32(o+i*4,false);
+H=sha256Block(H,bl);
+}
+const dig=new Uint8Array(32);
+const odv=new DataView(dig.buffer);
+H.forEach((v,i)=>odv.setUint32(i*4,v,false));
+return dig;
+}
+// Hmac-SHA256 full form- Hash Based Message Authentication Code using SHA-256, used in PBKDF2 to repeatedly hash the password and salt together to derive a strong key
+function hmacSha256(key, data) {// wraps the key to produce a key hash
+const BL=64;
+let k=key.length>BL?sha256(key):key;
+const kp=new Uint8Array(BL); kp.set(k);
+const ip=new Uint8Array(BL), op=new Uint8Array(BL);
+for (let i=0;i<BL;i++){ip[i]=kp[i]^0x36;op[i]=kp[i]^0x5c;}
+const inner=new Uint8Array(BL+data.length);
+inner.set(ip); inner.set(data,BL);
+const outer=new Uint8Array(BL+32);
+outer.set(op); outer.set(sha256(inner),BL);
+return sha256(outer);
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  PBKDF2-SHA256  pure JavaScript
-//  password+salt → 256-bit key via 100,000 HMAC-SHA256 rounds
-// ═══════════════════════════════════════════════════════════════
-function pbkdf2(password, salt, iterations, keyLen) {
-  const pw = typeof password === "string" ? strToBytes(password) : password;
-  const result = new Uint8Array(keyLen);
-  let offset = 0,
-    block = 1;
-  while (offset < keyLen) {
-    const sb = new Uint8Array(salt.length + 4);
-    sb.set(salt);
-    new DataView(sb.buffer).setUint32(salt.length, block, false);
-    let U = hmacSha256(pw, sb);
-    const T = new Uint8Array(U);
-    for (let i = 1; i < iterations; i++) {
-      U = hmacSha256(pw, U);
-      for (let j = 0; j < T.length; j++) T[j] ^= U[j];
-    }
-    const take = Math.min(keyLen - offset, T.length);
-    result.set(T.slice(0, take), offset);
-    offset += take;
-    block++;
-  }
-  return result;
+// ═══════════════════════════════════════════════════
+// PBKDF2-SHA256(Password-Based Key Derivation Function 2)
+// ═══════════════════════════════════════════════════
+function pbkdf2(password, salt, iterations, keyLen) {// derives a fixed-length key from a password and salt using repeated HMAC-SHA256, used to generate AES key from user password
+const pw=typeof password==='string'?strToBytes(password):password;
+const result=new Uint8Array(keyLen);
+let offset=0, block=1;
+while (offset<keyLen) {
+const sb=new Uint8Array(salt.length+4);
+sb.set(salt);
+new DataView(sb.buffer).setUint32(salt.length,block,false);
+let U=hmacSha256(pw,sb);// calls 1lakh times to make it slow and resistant to brute-force
+const T=new Uint8Array(U);
+for (let i=1;i<iterations;i++){
+U=hmacSha256(pw,U);
+for (let j=0;j<T.length;j++) T[j]^=U[j];
+}
+const take=Math.min(keyLen-offset,T.length);
+result.set(T.slice(0,take),offset);
+offset+=take; block++;
+}
+return result;
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  AES-256  pure JavaScript  FIPS 197
-//  14 rounds: SubBytes ShiftRows MixColumns AddRoundKey
-// ═══════════════════════════════════════════════════════════════
-const AES_SBOX = (() => {
-  const s = new Uint8Array(256);
-  let p = 1,
-    q = 1;
-  function r8(b, n) {
-    return ((b >> n) | (b << (8 - n))) & 0xff;
-  }
-  do {
-    p = (p ^ (p << 1) ^ (p & 0x80 ? 0x1b : 0)) & 0xff;
-    q ^= q << 1;
-    q ^= q << 2;
-    q ^= q << 4;
-    q ^= q & 0x80 ? 0x09 : 0;
-    q &= 0xff;
-    s[p] = q ^ r8(q, 4) ^ r8(q, 5) ^ r8(q, 6) ^ r8(q, 7) ^ 0x63;
-  } while (p !== 1);
-  s[0] = 0x63;
-  return s;
+// ═══════════════════════════════════════════════════
+// AES-256 — pure JS FIPS 197 implementation (CBC mode, no padding, 14 rounds) with precomputed S-boxes and key expansion. This is a low-level implementation of AES encryption and decryption, used for educational purposes to show how AES works under the hood without relying on built-in crypto libraries. It includes the core AES transformations: SubBytes, ShiftRows, MixColumns, and AddRoundKey, as well as key expansion to generate round keys from the original key.
+// ═══════════════════════════════════════════════════
+const AES_SBOX = (() => {// precompute AES S-box using multiplicative inverse in GF(2^8) and affine transformation, as defined in FIPS 197. This is a standard lookup table used in AES for the SubBytes step, providing non-linearity to the cipher.
+const s=new Uint8Array(256);
+let p=1,q=1;
+function r8(b,n){return((b>>n)|(b<<(8-n)))&0xff;}
+do {
+p=(p^(p<<1)^(p&0x80?0x1b:0))&0xff;
+q^=q<<1; q^=q<<2; q^=q<<4; q^=q&0x80?0x09:0; q&=0xff;
+s[p]=q^r8(q,4)^r8(q,5)^r8(q,6)^r8(q,7)^0x63;
+} while(p!==1);
+s[0]=0x63; return s;
 })();
-const AES_SBOX_INV = new Uint8Array(256);
-AES_SBOX.forEach((v, i) => {
-  AES_SBOX_INV[v] = i;
-});
-function gmul(a, b) {
-  let p = 0;
-  for (let i = 0; i < 8; i++) {
-    if (b & 1) p ^= a;
-    const h = a & 0x80;
-    a = (a << 1) & 0xff;
-    if (h) a ^= 0x1b;
-    b >>= 1;
-  }
-  return p;
+const AES_SBOX_INV=new Uint8Array(256);
+AES_SBOX.forEach((v,i)=>{AES_SBOX_INV[v]=i;});
+function gmul(a,b){
+let p=0;
+for (let i=0;i<8;i++){
+if(b&1)p^=a;
+const h=a&0x80; a=(a<<1)&0xff; if(h)a^=0x1b; b>>=1;
 }
-const RCON = [0x00, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36];
+return p;
+}
+const RCON=[0x00,0x01,0x02,0x04,0x08,0x10,0x20,0x40,0x80,0x1b,0x36];
 function aesKeyExpand(key) {
-  const W = new Uint8Array(240);
-  W.set(key.slice(0, 32));
-  for (let i = 8; i < 60; i++) {
-    let t = W.slice((i - 1) * 4, i * 4);
-    if (i % 8 === 0)
-      t = new Uint8Array([
-        AES_SBOX[t[1]] ^ RCON[i / 8],
-        AES_SBOX[t[2]],
-        AES_SBOX[t[3]],
-        AES_SBOX[t[0]],
-      ]);
-    else if (i % 8 === 4)
-      t = new Uint8Array([AES_SBOX[t[0]], AES_SBOX[t[1]], AES_SBOX[t[2]], AES_SBOX[t[3]]]);
-    for (let j = 0; j < 4; j++) W[i * 4 + j] = W[(i - 8) * 4 + j] ^ t[j];
-  }
-  return W;
+const W=new Uint8Array(240); W.set(key.slice(0,32));
+for (let i=8;i<60;i++){
+let t=W.slice((i-1)*4,i*4);
+if(i%8===0)
+t=new Uint8Array([AES_SBOX[t[1]]^RCON[i/8],AES_SBOX[t[2]],AES_SBOX[t[3]],AES_SBOX[t[0]]]);
+else if(i%8===4)
+t=new Uint8Array([AES_SBOX[t[0]],AES_SBOX[t[1]],AES_SBOX[t[2]],AES_SBOX[t[3]]]);
+for (let j=0;j<4;j++) W[i*4+j]=W[(i-8)*4+j]^t[j];
 }
-function addRoundKey(s, W, r) {
-  for (let i = 0; i < 16; i++) s[i] ^= W[r * 16 + i];
+return W;
 }
-function subBytes(s, inv = false) {
-  const b = inv ? AES_SBOX_INV : AES_SBOX;
-  for (let i = 0; i < 16; i++) s[i] = b[s[i]];
+function addRoundKey(s,W,r){for(let i=0;i<16;i++)s[i]^=W[r*16+i];}
+function subBytes(s,inv=false){const b=inv?AES_SBOX_INV:AES_SBOX;for(let i=0;i<16;i++)s[i]=b[s[i]];}
+function shiftRows(s,inv=false){
+const t=s.slice();
+if(!inv){s[1]=t[5];s[5]=t[9];s[9]=t[13];s[13]=t[1];s[2]=t[10];s[6]=t[14];s[10]=t[2];s[14]=t[6];s[3]=t[15];s[7]=t[3];s[11]=t[7];s[15]=t[11];}
+else{s[1]=t[13];s[5]=t[1];s[9]=t[5];s[13]=t[9];s[2]=t[10];s[6]=t[14];s[10]=t[2];s[14]=t[6];s[3]=t[7];s[7]=t[11];s[11]=t[15];s[15]=t[3];}
 }
-function shiftRows(s, inv = false) {
-  const t = s.slice();
-  if (!inv) {
-    s[1] = t[5];
-    s[5] = t[9];
-    s[9] = t[13];
-    s[13] = t[1];
-    s[2] = t[10];
-    s[6] = t[14];
-    s[10] = t[2];
-    s[14] = t[6];
-    s[3] = t[15];
-    s[7] = t[3];
-    s[11] = t[7];
-    s[15] = t[11];
-  } else {
-    s[1] = t[13];
-    s[5] = t[1];
-    s[9] = t[5];
-    s[13] = t[9];
-    s[2] = t[10];
-    s[6] = t[14];
-    s[10] = t[2];
-    s[14] = t[6];
-    s[3] = t[7];
-    s[7] = t[11];
-    s[11] = t[15];
-    s[15] = t[3];
-  }
+function mixColumns(s,inv=false){
+for(let c=0;c<4;c++){
+const i=c*4;const[a,b,d,e]=[s[i],s[i+1],s[i+2],s[i+3]];
+if(!inv){s[i]=gmul(2,a)^gmul(3,b)^d^e;s[i+1]=a^gmul(2,b)^gmul(3,d)^e;s[i+2]=a^b^gmul(2,d)^gmul(3,e);s[i+3]=gmul(3,a)^b^d^gmul(2,e);}
+else{s[i]=gmul(14,a)^gmul(11,b)^gmul(13,d)^gmul(9,e);s[i+1]=gmul(9,a)^gmul(14,b)^gmul(11,d)^gmul(13,e);s[i+2]=gmul(13,a)^gmul(9,b)^gmul(14,d)^gmul(11,e);s[i+3]=gmul(11,a)^gmul(13,b)^gmul(9,d)^gmul(14,e);}
 }
-function mixColumns(s, inv = false) {
-  for (let c = 0; c < 4; c++) {
-    const i = c * 4;
-    const [a, b, d, e] = [s[i], s[i + 1], s[i + 2], s[i + 3]];
-    if (!inv) {
-      s[i] = gmul(2, a) ^ gmul(3, b) ^ d ^ e;
-      s[i + 1] = a ^ gmul(2, b) ^ gmul(3, d) ^ e;
-      s[i + 2] = a ^ b ^ gmul(2, d) ^ gmul(3, e);
-      s[i + 3] = gmul(3, a) ^ b ^ d ^ gmul(2, e);
-    } else {
-      s[i] = gmul(14, a) ^ gmul(11, b) ^ gmul(13, d) ^ gmul(9, e);
-      s[i + 1] = gmul(9, a) ^ gmul(14, b) ^ gmul(11, d) ^ gmul(13, e);
-      s[i + 2] = gmul(13, a) ^ gmul(9, b) ^ gmul(14, d) ^ gmul(11, e);
-      s[i + 3] = gmul(11, a) ^ gmul(13, b) ^ gmul(9, d) ^ gmul(14, e);
-    }
-  }
 }
-function aesEncBlock(block, W) {
-  const s = new Uint8Array(block);
-  addRoundKey(s, W, 0);
-  for (let r = 1; r <= 13; r++) {
-    subBytes(s);
-    shiftRows(s);
-    mixColumns(s);
-    addRoundKey(s, W, r);
-  }
-  subBytes(s);
-  shiftRows(s);
-  addRoundKey(s, W, 14);
-  return s;
+function aesEncBlock(block,W){const s=new Uint8Array(block);addRoundKey(s,W,0);for(let r=1;r<=13;r++){subBytes(s);shiftRows(s);mixColumns(s);addRoundKey(s,W,r);}subBytes(s);shiftRows(s);addRoundKey(s,W,14);return s;}
+function aesDecBlock(block,W){const s=new Uint8Array(block);addRoundKey(s,W,14);for(let r=13;r>=1;r--){shiftRows(s,true);subBytes(s,true);addRoundKey(s,W,r);mixColumns(s,true);}shiftRows(s,true);subBytes(s,true);addRoundKey(s,W,0);return s;}
+
+// AES-256-GCM//Galois/Counter Mode of AES provides authenticated encryption, combining confidentiality and integrity. It uses AES in counter mode for encryption and a GHASH function for authentication, which multiplies blocks in the Galois field GF(2^128). The gcmMul function implements this multiplication, while ghash computes the authentication tag over the ciphertext and additional data. The gcmEncrypt and gcmDecrypt functions handle the full encryption and decryption processes, including key expansion, IV handling, and tag generation/verification.
+function gcmMul(X,H){let Z=new Uint8Array(16),V=new Uint8Array(H);for(let i=0;i<128;i++){if((X[Math.floor(i/8)]>>(7-(i%8)))&1)for(let j=0;j<16;j++)Z[j]^=V[j];const lsb=V[15]&1;for(let j=15;j>0;j--)V[j]=(V[j]>>1)|((V[j-1]&1)<<7);V[0]>>=1;if(lsb)V[0]^=0xe1;}return Z;}
+// The ghash function computes the authentication tag by processing the ciphertext and additional data in 16-byte blocks, XORing them together and multiplying by the hash subkey H using gcmMul. This produces a final authentication value that is combined with the encrypted J0 value to create the GCM tag, ensuring both confidentiality and integrity of the encrypted data.
+function ghash(H,data){let X=new Uint8Array(16);for(let i=0;i<data.length;i+=16){const bl=data.slice(i,i+16);for(let j=0;j<16;j++)X[j]^=bl[j];X=gcmMul(X,H);}return X;}
+// The padTo16 function ensures that the plaintext is padded to a multiple of 16 bytes, which is necessary for AES block processing. It calculates the required padding length and creates a new Uint8Array with the original data followed by the necessary padding bytes.
+function padTo16(d){const p=d.length%16===0?0:16-(d.length%16);const o=new Uint8Array(d.length+p);o.set(d);return o;}
+
+function gcmEncrypt(key,iv,pt){//encrypts using counter counter mode
+const W=aesKeyExpand(key),H=aesEncBlock(new Uint8Array(16),W);
+const J0=new Uint8Array(16);J0.set(iv);J0[15]=1;
+const ct=new Uint8Array(pt.length),ctr=new Uint8Array(J0);
+for(let i=0;i<pt.length;i+=16){
+for(let j=15;j>=12;j--){ctr[j]=(ctr[j]+1)&0xff;if(ctr[j]!==0)break;}
+const ks=aesEncBlock(ctr,W);
+for(let j=0;j<Math.min(16,pt.length-i);j++)ct[i+j]=pt[i+j]^ks[j];
 }
-function aesDecBlock(block, W) {
-  const s = new Uint8Array(block);
-  addRoundKey(s, W, 14);
-  for (let r = 13; r >= 1; r--) {
-    shiftRows(s, true);
-    subBytes(s, true);
-    addRoundKey(s, W, r);
-    mixColumns(s, true);
-  }
-  shiftRows(s, true);
-  subBytes(s, true);
-  addRoundKey(s, W, 0);
-  return s;
+const cp=padTo16(ct),lb=new Uint8Array(16);
+new DataView(lb.buffer).setUint32(12,ct.length*8,false);
+const gi=new Uint8Array(cp.length+16);gi.set(cp);gi.set(lb,cp.length);
+const Sv=ghash(H,gi),EJ0=aesEncBlock(J0,W),tag=new Uint8Array(16);
+for(let i=0;i<16;i++)tag[i]=EJ0[i]^Sv[i];
+return{ciphertext:ct,tag};
+}
+function gcmDecrypt(key,iv,ct,tag){// Decrypts the ciphertext using AES-256-GCM, verifying the authentication tag to ensure integrity. It first computes the expected tag using the GHASH function and compares it to the provided tag. If they match, it proceeds to decrypt the ciphertext using AES in counter mode, returning the original plaintext. If the tags do not match, it throws an error indicating a potential tampering or incorrect password.
+const W=aesKeyExpand(key),H=aesEncBlock(new Uint8Array(16),W);
+const J0=new Uint8Array(16);J0.set(iv);J0[15]=1;
+const cp=padTo16(ct),lb=new Uint8Array(16);
+new DataView(lb.buffer).setUint32(12,ct.length*8,false);
+const gi=new Uint8Array(cp.length+16);gi.set(cp);gi.set(lb,cp.length);
+const Sv=ghash(H,gi),EJ0=aesEncBlock(J0,W);
+let mm=0;for(let i=0;i<16;i++)mm|=EJ0[i]^Sv[i]^tag[i];
+if(mm!==0)throw new Error('GCM authentication tag mismatch — wrong password or tampered ciphertext');
+const pt=new Uint8Array(ct.length),ctr=new Uint8Array(J0);
+for(let i=0;i<ct.length;i+=16){
+for(let j=15;j>=12;j--){ctr[j]=(ctr[j]+1)&0xff;if(ctr[j]!==0)break;}
+const ks=aesEncBlock(ctr,W);
+for(let j=0;j<Math.min(16,ct.length-i);j++)pt[i+j]=ct[i+j]^ks[j];
+}
+return pt;
+}
+function randomBytes(n){return crypto.getRandomValues(new Uint8Array(n));}
+function aesEncryptRaw(password,plaintext){
+const salt=randomBytes(16),iv=randomBytes(12);
+const key=pbkdf2(password,salt,100000,32);
+const pt=typeof plaintext==='string'?strToBytes(plaintext):plaintext;
+const{ciphertext,tag}=gcmEncrypt(key,iv,pt);
+return{salt:bytesToHex(salt),iv:bytesToHex(iv),ciphertext:bytesToHex(ciphertext),tag:bytesToHex(tag),algorithm:'AES-256-GCM',kdf:'PBKDF2-SHA256-100000'};
+}
+function aesDecryptRaw(password,bundle){
+const key=pbkdf2(password,hexToBytes(bundle.salt),100000,32);
+return bytesToStr(gcmDecrypt(key,hexToBytes(bundle.iv),hexToBytes(bundle.ciphertext),hexToBytes(bundle.tag)));
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  AES-256-GCM  CTR mode + GHASH authentication
-// ═══════════════════════════════════════════════════════════════
-function gcmMul(X, H) {
-  let Z = new Uint8Array(16),
-    V = new Uint8Array(H);
-  for (let i = 0; i < 128; i++) {
-    if ((X[Math.floor(i / 8)] >> (7 - (i % 8))) & 1) for (let j = 0; j < 16; j++) Z[j] ^= V[j];
-    const lsb = V[15] & 1;
-    for (let j = 15; j > 0; j--) V[j] = (V[j] >> 1) | ((V[j - 1] & 1) << 7);
-    V[0] >>= 1;
-    if (lsb) V[0] ^= 0xe1;
-  }
-  return Z;
+// ═══════════════════════════════════════════════════
+// RSA-2048 — pure JS BigInt// Implements RSA key generation, encryption, and decryption using BigInt for handling large integers. The modpow function performs modular exponentiation efficiently using the square-and-multiply algorithm, while extGcd and modInv are used for computing the modular inverse necessary for RSA key generation. The isPrime function implements the Miller-Rabin primality test to generate large prime numbers securely. The pkcs1Pad and pkcs1Verify functions handle PKCS#1 v1.5 padding for RSA signatures, ensuring that messages are properly formatted before signing and verifying.
+// ═══════════════════════════════════════════════════
+function modpow(base,exp,mod){
+if(mod===1n)return 0n;
+let r=1n; base=base%mod;
+while(exp>0n){if(exp%2n===1n)r=(r*base)%mod;exp=exp/2n;base=(base*base)%mod;}
+return r;
 }
-function ghash(H, data) {
-  let X = new Uint8Array(16);
-  for (let i = 0; i < data.length; i += 16) {
-    const bl = data.slice(i, i + 16);
-    for (let j = 0; j < 16; j++) X[j] ^= bl[j];
-    X = gcmMul(X, H);
-  }
-  return X;
+function extGcd(a,b){
+if(b===0n)return{g:a,x:1n,y:0n};
+const{g,x,y}=extGcd(b,a%b);return{g,x:y,y:x-(a/b)*y};
 }
-function padTo16(d) {
-  const p = d.length % 16 === 0 ? 0 : 16 - (d.length % 16);
-  const o = new Uint8Array(d.length + p);
-  o.set(d);
-  return o;
+function modInv(a,m){
+const{g,x}=extGcd(((a%m)+m)%m,m);
+if(g!==1n)throw new Error('No inverse');
+return((x%m)+m)%m;
 }
-function gcmEncrypt(key, iv, pt) {
-  const W = aesKeyExpand(key),
-    H = aesEncBlock(new Uint8Array(16), W);
-  const J0 = new Uint8Array(16);
-  J0.set(iv);
-  J0[15] = 1;
-  const ct = new Uint8Array(pt.length),
-    ctr = new Uint8Array(J0);
-  for (let i = 0; i < pt.length; i += 16) {
-    for (let j = 15; j >= 12; j--) {
-      ctr[j] = (ctr[j] + 1) & 0xff;
-      if (ctr[j] !== 0) break;
-    }
-    const ks = aesEncBlock(ctr, W);
-    for (let j = 0; j < Math.min(16, pt.length - i); j++) ct[i + j] = pt[i + j] ^ ks[j];
-  }
-  const cp = padTo16(ct),
-    lb = new Uint8Array(16);
-  new DataView(lb.buffer).setUint32(12, ct.length * 8, false);
-  const gi = new Uint8Array(cp.length + 16);
-  gi.set(cp);
-  gi.set(lb, cp.length);
-  const S = ghash(H, gi),
-    EJ0 = aesEncBlock(J0, W),
-    tag = new Uint8Array(16);
-  for (let i = 0; i < 16; i++) tag[i] = EJ0[i] ^ S[i];
-  return { ciphertext: ct, tag };
+function isPrime(n){
+if(n<2n)return false;
+if(n===2n||n===3n||n===5n||n===7n)return true;
+if(n%2n===0n)return false;
+let d=n-1n,r=0n;
+while(d%2n===0n){d/=2n;r++;}
+for(const a of[2n,3n,5n,7n,11n,13n,17n,19n,23n,29n,31n,37n]){
+if(a>=n)continue;
+let x=modpow(a,d,n);
+if(x===1n||x===n-1n)continue;
+let comp=true;
+for(let i=0n;i<r-1n;i++){x=modpow(x,2n,n);if(x===n-1n){comp=false;break;}}
+if(comp)return false;
 }
-function gcmDecrypt(key, iv, ct, tag) {
-  const W = aesKeyExpand(key),
-    H = aesEncBlock(new Uint8Array(16), W);
-  const J0 = new Uint8Array(16);
-  J0.set(iv);
-  J0[15] = 1;
-  const cp = padTo16(ct),
-    lb = new Uint8Array(16);
-  new DataView(lb.buffer).setUint32(12, ct.length * 8, false);
-  const gi = new Uint8Array(cp.length + 16);
-  gi.set(cp);
-  gi.set(lb, cp.length);
-  const S = ghash(H, gi),
-    EJ0 = aesEncBlock(J0, W);
-  let mm = 0;
-  for (let i = 0; i < 16; i++) mm |= EJ0[i] ^ S[i] ^ tag[i];
-  if (mm !== 0)
-    throw new Error("GCM authentication tag mismatch — wrong password or tampered ciphertext");
-  const pt = new Uint8Array(ct.length),
-    ctr = new Uint8Array(J0);
-  for (let i = 0; i < ct.length; i += 16) {
-    for (let j = 15; j >= 12; j--) {
-      ctr[j] = (ctr[j] + 1) & 0xff;
-      if (ctr[j] !== 0) break;
-    }
-    const ks = aesEncBlock(ctr, W);
-    for (let j = 0; j < Math.min(16, ct.length - i); j++) pt[i + j] = ct[i + j] ^ ks[j];
-  }
-  return pt;
+return true;
+}
+function randomBigInt(bits){
+const bytes=Math.ceil(bits/8);
+const arr=randomBytes(bytes);
+arr[0]|=0x80; arr[bytes-1]|=0x01;
+return BigInt('0x'+bytesToHex(arr));
+}
+function generatePrime(bits){
+while(true){
+let c=randomBigInt(bits);
+if(c%2n===0n)c+=1n;
+if(isPrime(c))return c;
+}
 }
 
-// Only non-crypto-API call: OS CSPRNG for randomness (not a network API)
-function randomBytes(n) {
-  return crypto.getRandomValues(new Uint8Array(n));
-}
-
-function aesEncryptRaw(password, plaintext) {
-  const salt = randomBytes(16),
-    iv = randomBytes(12);
-  const key = pbkdf2(password, salt, 100000, 32);
-  const pt = typeof plaintext === "string" ? strToBytes(plaintext) : plaintext;
-  const { ciphertext, tag } = gcmEncrypt(key, iv, pt);
-  return {
-    salt: bytesToHex(salt),
-    iv: bytesToHex(iv),
-    ciphertext: bytesToHex(ciphertext),
-    tag: bytesToHex(tag),
-    algorithm: "AES-256-GCM",
-    kdf: "PBKDF2-SHA256-100000",
-  };
-}
-function aesDecryptRaw(password, bundle) {
-  const key = pbkdf2(password, hexToBytes(bundle.salt), 100000, 32);
-  return bytesToStr(
-    gcmDecrypt(key, hexToBytes(bundle.iv), hexToBytes(bundle.ciphertext), hexToBytes(bundle.tag)),
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  RSA-2048  pure JavaScript BigInt
-//  Miller-Rabin primality + Extended Euclidean + modpow CRT
-// ═══════════════════════════════════════════════════════════════
-function modpow(base, exp, mod) {
-  if (mod === 1n) return 0n;
-  let r = 1n;
-  base = base % mod;
-  while (exp > 0n) {
-    if (exp % 2n === 1n) r = (r * base) % mod;
-    exp = exp / 2n;
-    base = (base * base) % mod;
-  }
-  return r;
-}
-function extGcd(a, b) {
-  if (b === 0n) return { g: a, x: 1n, y: 0n };
-  const { g, x, y } = extGcd(b, a % b);
-  return { g, x: y, y: x - (a / b) * y };
-}
-function modInv(a, m) {
-  const { g, x } = extGcd(((a % m) + m) % m, m);
-  if (g !== 1n) throw new Error("No inverse");
-  return ((x % m) + m) % m;
-}
-function isPrime(n) {
-  if (n < 2n) return false;
-  if (n === 2n || n === 3n || n === 5n || n === 7n) return true;
-  if (n % 2n === 0n) return false;
-  let d = n - 1n,
-    r = 0n;
-  while (d % 2n === 0n) {
-    d /= 2n;
-    r++;
-  }
-  for (const a of [2n, 3n, 5n, 7n, 11n, 13n, 17n, 19n, 23n, 29n, 31n, 37n]) {
-    if (a >= n) continue;
-    let x = modpow(a, d, n);
-    if (x === 1n || x === n - 1n) continue;
-    let comp = true;
-    for (let i = 0n; i < r - 1n; i++) {
-      x = modpow(x, 2n, n);
-      if (x === n - 1n) {
-        comp = false;
-        break;
-      }
-    }
-    if (comp) return false;
-  }
-  return true;
-}
-function randomBigInt(bits) {
-  const bytes = Math.ceil(bits / 8);
-  const arr = randomBytes(bytes);
-  arr[0] |= 0x80;
-  arr[bytes - 1] |= 0x01;
-  return BigInt("0x" + bytesToHex(arr));
-}
-function generatePrime(bits) {
-  while (true) {
-    let c = randomBigInt(bits);
-    if (c % 2n === 0n) c += 1n;
-    if (isPrime(c)) return c;
-  }
-}
-function bigIntToBytes(n, len) {
-  let hex = n.toString(16);
-  if (hex.length % 2) hex = "0" + hex;
-  const b = hexToBytes(hex);
-  const o = new Uint8Array(len);
-  o.set(b, len - b.length);
-  return o;
-}
-function bytesToBigInt(bytes) {
-  return BigInt("0x" + bytesToHex(bytes));
-}
-
-// PKCS#1 v1.5 SHA-256 signature padding
-const SHA256_DI = hexToBytes("3031300d060960864801650304020105000420");
+// PKCS#1 v1.5 SHA-256 OID + DER DigestInfo prefix for RSA signatures.
+// The pkcs1Pad(publicKey crytography standards) function takes a hash and desired encoded message length, and constructs the padded message according to PKCS#1 v1.5 specifications, 
+// including the appropriate ASN.1(Abstract Syntax Notation One)structure for SHA-256. 
+// The pkcs1Verify function compares a given encoded message with the expected padded structure for a given hash,
+// returning true if they match (indicating a valid signature) or false otherwise.
+const SHA256_DI = hexToBytes('3031300d060960864801650304020105000420');
 function pkcs1Pad(hash, emLen) {
-  const tLen = SHA256_DI.length + 32;
-  if (emLen < tLen + 11) throw new Error("Key too short");
-  const ps = emLen - tLen - 3;
-  const em = new Uint8Array(emLen);
-  em[0] = 0x00;
-  em[1] = 0x01;
-  for (let i = 0; i < ps; i++) em[2 + i] = 0xff;
-  em[2 + ps] = 0x00;
-  em.set(SHA256_DI, 3 + ps);
-  em.set(hash, 3 + ps + SHA256_DI.length);
-  return em;
+const tLen = SHA256_DI.length + 32;
+if (emLen < tLen + 11) throw new Error('Key too short');
+const ps = emLen - tLen - 3;
+const em = new Uint8Array(emLen);
+em[0] = 0x00; em[1] = 0x01;
+for (let i = 0; i < ps; i++) em[2+i] = 0xff;
+em[2+ps] = 0x00;
+em.set(SHA256_DI, 3+ps);
+em.set(hash, 3+ps+SHA256_DI.length);
+return em;
 }
 function pkcs1Verify(em, hash, emLen) {
-  const ex = pkcs1Pad(hash, emLen);
-  let d = 0;
-  for (let i = 0; i < emLen; i++) d |= em[i] ^ ex[i];
-  return d === 0;
+const ex = pkcs1Pad(hash, emLen);
+let d = 0;
+for (let i = 0; i < emLen; i++) d |= em[i] ^ ex[i];
+return d === 0;
 }
 
-// Minimal DER encoder helpers
-function derLen(n) {
-  return n < 0x80 ? [n] : n < 0x100 ? [0x81, n] : [0x82, (n >> 8) & 0xff, n & 0xff];
-}
+// DER helpers//what is DER? Distinguished Encoding Rules (DER) is a binary format for encoding data structures described by ASN.1 (Abstract Syntax Notation One).
+//  It is commonly used in cryptography for encoding keys, certificates, and signatures. 
+// The derLen function encodes lengths according to DER rules, while derInt converts a BigInt to a DER-encoded INTEGER. 
+// The rsaPubToDer and rsaPrivToDer functions convert RSA public and private key components into DER-encoded formats suitable for storage or transmission,
+//  and derToPem converts DER-encoded data into PEM format with appropriate headers and base64 encoding.
+function derLen(n){ return n<0x80?[n]:n<0x100?[0x81,n]:[0x82,(n>>8)&0xff,n&0xff]; }
+
+// FIXED: derInt — safe zero handling
 function derInt(bi) {
-  let hex = bi.toString(16);
-  if (hex.length % 2) hex = "0" + hex;
-  const b = hexToBytes(hex);
-  const bb = b[0] & 0x80 ? new Uint8Array([0, ...b]) : b;
-  return [0x02, ...derLen(bb.length), ...bb];
+if (bi === 0n) return [0x02, 0x01, 0x00];
+let hex = bi.toString(16);
+if (hex.length % 2 !== 0) hex = '0' + hex;
+const b = hexToBytes(hex);
+// If high bit set, prepend 0x00 to keep it positive
+const bb = (b[0] & 0x80) ? new Uint8Array([0, ...b]) : b;
+return [0x02, ...derLen(bb.length), ...bb];
 }
+
 function rsaPubToDer(n, e) {
-  const nb = bigIntToBytes(n, 256),
-    eb = bigIntToBytes(e, 3).slice(bigIntToBytes(e, 3).findIndex((x) => x !== 0));
-  const seq = [...derInt(bytesToBigInt(nb)), ...[0x02, ...derLen(eb.length), ...eb]];
-  const inner = [0x30, ...derLen(seq.length), ...seq];
-  const alg = [
-    0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00,
-  ];
-  const bs = [0x03, ...derLen(inner.length + 1), 0x00, ...inner];
-  return new Uint8Array([0x30, ...derLen(alg.length + bs.length), ...alg, ...bs]);
+const nb = bigIntToBytes(n, 256);
+// Encode e as minimal bytes
+let eHex = e.toString(16);
+if (eHex.length % 2 !== 0) eHex = '0' + eHex;
+const eb = hexToBytes(eHex);
+// prepend 0x00 if high bit set
+const ebb = (eb[0] & 0x80) ? new Uint8Array([0, ...eb]) : eb;
+
+const nDer = [0x02, ...derLen(nb[0] & 0x80 ? nb.length+1 : nb.length),
+...(nb[0] & 0x80 ? [0, ...nb] : nb)];
+const eDer = [0x02, ...derLen(ebb.length), ...ebb];
+const seq = [...nDer, ...eDer];
+const inner = [0x30, ...derLen(seq.length), ...seq];
+const alg = [0x30,0x0d,0x06,0x09,0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x01,0x01,0x05,0x00];
+const bs = [0x03, ...derLen(inner.length+1), 0x00, ...inner];
+return new Uint8Array([0x30, ...derLen(alg.length+bs.length), ...alg, ...bs]);
 }
+
 function rsaPrivToDer(n, e, d, p, q) {
-  const dp = d % (p - 1n),
-    dq = d % (q - 1n),
-    qi = modInv(q, p);
-  const seq = [
-    0x02,
-    0x01,
-    0x00,
-    ...derInt(n),
-    ...derInt(e),
-    ...derInt(d),
-    ...derInt(p),
-    ...derInt(q),
-    ...derInt(dp),
-    ...derInt(dq),
-    ...derInt(qi),
-  ];
-  const inner = [0x30, ...derLen(seq.length), ...seq];
-  const alg = [
-    0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00,
-  ];
-  const os = [0x04, ...derLen(inner.length), ...inner];
-  return new Uint8Array([0x30, ...derLen(alg.length + os.length), ...alg, ...os]);
+const dp = d%(p-1n), dq = d%(q-1n), qi = modInv(q, p);
+const seq = [0x02,0x01,0x00,...derInt(n),...derInt(e),...derInt(d),
+...derInt(p),...derInt(q),...derInt(dp),...derInt(dq),...derInt(qi)];
+const inner = [0x30,...derLen(seq.length),...seq];
+const alg = [0x30,0x0d,0x06,0x09,0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x01,0x01,0x05,0x00];
+const os = [0x04,...derLen(inner.length),...inner];
+return new Uint8Array([0x30,...derLen(alg.length+os.length),...alg,...os]);
 }
+
 function derToPem(der, label) {
-  return (
-    `-----BEGIN ${label}-----\n` +
-    ab2b64(der.buffer || der)
-      .match(/.{1,64}/g)
-      .join("\n") +
-    `\n-----END ${label}-----`
-  );
+return `-----BEGIN ${label}-----\n`
++ ab2b64(der.buffer||der).match(/.{1,64}/g).join('\n')
++ `\n-----END ${label}-----`;
 }
+
+// FIXED: parsePubDer — robust DER parser that correctly navigates SubjectPublicKeyInfo
 function parsePubDer(der) {
-  function rl(d, p) {
-    if (d[p] < 0x80) return { len: d[p], next: p + 1 };
-    const nb = d[p] & 0x7f;
-    let l = 0;
-    for (let k = 0; k < nb; k++) l = (l << 8) | d[p + 1 + k];
-    return { len: l, next: p + 1 + nb };
-  }
-  function ri(d, p) {
-    p++;
-    const { len, next } = rl(d, p);
-    p = next;
-    let b = d.slice(p, p + len);
-    if (b[0] === 0) b = b.slice(1);
-    return { val: bytesToBigInt(b), next: p + len };
-  }
-  let i = 2;
-  const { next: n1 } = rl(der, i);
-  i = n1;
-  const { len: l2, next: n2 } = rl(der, i + 1);
-  i = n2 + l2 + 1;
-  i += 2;
-  const { next: n4 } = rl(der, i);
-  i = n4 + 1;
-  i++;
-  const { next: nn } = rl(der, i);
-  i = nn;
-  const { val: n, next: ni } = ri(der, i);
-  const { val: e } = ri(der, ni);
-  return { n, e };
+let pos = 0;
+
+function readTag() {
+return der[pos++];
+}
+function readLen() {
+const first = der[pos++];
+if (first < 0x80) return first;
+const nb = first & 0x7f;
+let len = 0;
+for (let i = 0; i < nb; i++) len = (len << 8) | der[pos++];
+return len;
+}
+function readTLV() {
+const tag = readTag();
+const len = readLen();
+const start = pos;
+pos += len;
+return { tag, len, start, end: pos };
+}
+// Reads an INTEGER, strips leading 0x00 padding, returns BigInt
+function readInt() {
+const tag = readTag();
+if (tag !== 0x02) throw new Error('Expected INTEGER tag 0x02, got 0x' + tag.toString(16));
+const len = readLen();
+let bytes = der.slice(pos, pos + len);
+pos += len;
+// strip leading zero byte (sign byte)
+while (bytes.length > 1 && bytes[0] === 0x00) bytes = bytes.slice(1);
+if (bytes.length === 0) return 0n;
+const hex = bytesToHex(bytes);
+return BigInt('0x' + hex);
+}
+
+// SEQUENCE (outer SubjectPublicKeyInfo)
+readTag(); readLen();
+// SEQUENCE (AlgorithmIdentifier)
+const algSeq = readTLV();
+pos = algSeq.end; // skip algorithm identifier
+// BIT STRING
+readTag(); readLen();
+pos++; // skip unused-bits byte (0x00)
+// SEQUENCE (RSAPublicKey)
+readTag(); readLen();
+// Now read n and e
+const n = readInt();
+const e = readInt();
+return { n, e };
+}
+
+// RSA sign / verify
+function rsaSign(message, privKey) {
+const hash = sha256(message);
+const em = pkcs1Pad(hash, 256);
+const m = bytesToBigInt(em);
+const s = modpow(m, privKey.d, privKey.n);
+return bigIntToBytes(s, 256);
+}
+function rsaVerify(message, sigBytes, pubKey) {
+const hash = sha256(message);
+const s = bytesToBigInt(sigBytes);
+const m = modpow(s, pubKey.e, pubKey.n);
+const em = bigIntToBytes(m, 256);
+return pkcs1Verify(em, hash, 256);
 }
 
 // RSA key generation
 function generateRsaKeyPair() {
-  const E = 65537n;
-  let p, q, n, phi;
-  do {
-    p = generatePrime(1024);
-    q = generatePrime(1024);
-    if (p === q) continue;
-    n = p * q;
-    phi = (p - 1n) * (q - 1n);
-  } while (extGcd(E, phi).g !== 1n || n.toString(2).length !== 2048);
-  const d = modInv(E, phi);
-  return { n, e: E, d, p, q };
+const E = 65537n;
+let p, q, n, phi;
+do {
+p = generatePrime(1024);
+q = generatePrime(1024);
+if (p === q) continue;
+n = p * q;
+phi = (p-1n)*(q-1n);
+} while (extGcd(E, phi).g !== 1n || n.toString(2).length !== 2048);
+const d = modInv(E, phi);
+return { n, e: E, d, p, q };
 }
 
-// RSA sign: SHA-256 → PKCS#1v15 pad → m^d mod n
-function rsaSign(message, privKey) {
-  const hash = sha256(message);
-  const em = pkcs1Pad(hash, 256);
-  const m = bytesToBigInt(em);
-  const s = modpow(m, privKey.d, privKey.n);
-  return bigIntToBytes(s, 256);
-}
-
-// RSA verify: s^e mod n → unpad → compare hash
-function rsaVerify(message, sigBytes, pubKey) {
-  const hash = sha256(message);
-  const s = bytesToBigInt(sigBytes);
-  const m = modpow(s, pubKey.e, pubKey.n);
-  const em = bigIntToBytes(m, 256);
-  return pkcs1Verify(em, hash, 256);
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  KEY GENERATION
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════
+// KEY GENERATION
+// ═══════════════════════════════════════════════════
 async function generateKeys() {
-  const name = document.getElementById("user-name").value.trim() || "User";
-  const st = document.getElementById("keygen-status");
-  st.innerHTML = msg(
-    "info",
-    '<span class="spin">⟳</span> Generating RSA-2048… finding 1024-bit primes via Miller-Rabin (20–60s)',
-  );
-  await sleep(80);
-  try {
-    const kd = await new Promise((res, rej) => {
-      setTimeout(() => {
-        try {
-          res(generateRsaKeyPair());
-        } catch (e) {
-          rej(e);
-        }
-      }, 10);
-    });
-    const { n, e, d, p, q } = kd;
-    const pubDer = rsaPubToDer(n, e),
-      privDer = rsaPrivToDer(n, e, d, p, q);
-    const pubPem = derToPem(pubDer, "PUBLIC KEY"),
-      privPem = derToPem(privDer, "PRIVATE KEY");
-    S.keys.push({
-      name,
-      pub: { n, e },
-      priv: { n, d },
-      pubPem,
-      privPem,
-      created: new Date().toLocaleTimeString(),
-    });
-    document.getElementById("priv-display").textContent = privPem;
-    document.getElementById("pub-display").textContent = pubPem;
-    document.getElementById("key-display-card").style.display = "block";
-    document.getElementById("keystore-wrapper").style.display = "block";
-    renderKeystore();
-    refreshKeyPicker();
-    document.getElementById("key-count").textContent = S.keys.length;
-    st.innerHTML = msg("ok", `✓ Keys generated for <strong>${name}</strong> — pure JS RSA-2048`);
-  } catch (e) {
-    st.innerHTML = msg("err", "✗ " + e.message);
-  }
+const name = document.getElementById('user-name').value.trim() || 'User';
+const st = document.getElementById('keygen-status');
+st.innerHTML = msg('info','<span class="spin">⟳</span> Generating RSA-2048… finding 1024-bit primes via Miller-Rabin (20–60s)');
+await sleep(80);
+try {
+const kd = await new Promise((res,rej)=>{
+setTimeout(()=>{try{res(generateRsaKeyPair());}catch(e){rej(e);}},10);
+});
+const{n,e,d,p,q}=kd;
+const pubDer=rsaPubToDer(n,e), privDer=rsaPrivToDer(n,e,d,p,q);
+const pubPem=derToPem(pubDer,'PUBLIC KEY'), privPem=derToPem(privDer,'PRIVATE KEY');
+S.keys.push({name,pub:{n,e},priv:{n,d},pubPem,privPem,created:new Date().toLocaleTimeString()});
+document.getElementById('priv-display').textContent=privPem;
+document.getElementById('pub-display').textContent=pubPem;
+document.getElementById('key-display-card').style.display='block';
+document.getElementById('keystore-wrapper').style.display='block';
+renderKeystore(); refreshKeyPicker();
+document.getElementById('key-count').textContent=S.keys.length;
+st.innerHTML=msg('ok',`✓ Keys generated for <strong>${name}</strong>`);
+} catch(e) {
+st.innerHTML=msg('err','✗ '+e.message);
 }
-function renderKeystore() {
-  document.getElementById("keystore-list").innerHTML = S.keys
-    .map(
-      (k) =>
-        `<div class="signer-row"><div class="signer-left"><div class="avatar">${k.name.slice(0, 2).toUpperCase()}</div><div><div class="signer-name">${k.name}</div><div class="signer-time">Generated ${k.created}</div></div></div><span class="badge badge-info">RSA-2048</span></div>`,
-    )
-    .join("");
 }
-function refreshKeyPicker() {
-  const sel = document.getElementById("key-picker");
-  sel.innerHTML = S.keys
-    .map((k, i) => `<option value="${i}">${k.name} (key #${i + 1})</option>`)
-    .join("");
-  if (S.keys.length > 0) {
-    document.getElementById("no-keys-warn").style.display = "none";
-    document.getElementById("key-selector").style.display = "block";
-    document.getElementById("sign-btn").disabled = false;
-  }
+function renderKeystore(){
+document.getElementById('keystore-list').innerHTML=S.keys.map(k=>
+`<div class="signer-row"><div class="signer-left"><div class="avatar">${k.name.slice(0,2).toUpperCase()}</div><div><div class="signer-name">${k.name}</div><div class="signer-time">Generated ${k.created}</div></div></div><span class="badge badge-info">RSA-2048</span></div>`
+).join('');
+}
+function refreshKeyPicker(){
+const sel=document.getElementById('key-picker');
+sel.innerHTML=S.keys.map((k,i)=>`<option value="${i}">${k.name} (key #${i+1})</option>`).join('');
+if(S.keys.length>0){
+document.getElementById('no-keys-warn').style.display='none';
+document.getElementById('key-selector').style.display='block';
+document.getElementById('sign-btn').disabled=false;
+}
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  SIGNING
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════
+// SIGNING
+// ═══════════════════════════════════════════════════
 async function signDocument() {
-  const idx = parseInt(document.getElementById("key-picker").value) || 0;
-  const key = S.keys[idx];
-  if (!key) return;
-  const doc =
-    document.getElementById("stab-file").style.display !== "none"
-      ? S.fileContent
-      : document.getElementById("sign-doc").value.trim();
-  const st = document.getElementById("sign-status");
-  if (!doc) {
-    st.innerHTML = msg("warn", "Enter a document first.");
-    return;
-  }
-  st.innerHTML = msg("info", '<span class="spin">⟳</span> SHA-256 hashing + RSA signing…');
-  await sleep(30);
-  try {
-    const docB = strToBytes(doc);
-    const hashB = sha256(docB);
-    const sigB = rsaSign(docB, key.priv);
-    document.getElementById("out-hash").textContent = bytesToHex(hashB);
-    document.getElementById("out-sig").textContent = bytesToHex(sigB).slice(0, 80) + "…";
-    renderHashVis(hashB, "hash-color-vis");
-    S.lastBundle = {
-      document: doc,
-      signature: bytesToHex(sigB),
-      publicKey: key.pubPem,
-      signer: key.name,
-      timestamp: new Date().toISOString(),
-      algorithm: "RSA-PKCS1v15-SHA256",
-      keySize: 2048,
-    };
-    document.getElementById("sig-output").style.display = "block";
-    st.innerHTML = msg("ok", `✓ Signed by <strong>${key.name}</strong>`);
-  } catch (e) {
-    st.innerHTML = msg("err", "✗ " + e.message);
-  }
+const idx=parseInt(document.getElementById('key-picker').value)||0;
+const key=S.keys[idx]; if(!key)return;
+const doc=document.getElementById('stab-file').style.display!=='none'
+?S.fileContent:document.getElementById('sign-doc').value.trim();
+const st=document.getElementById('sign-status');
+if(!doc){st.innerHTML=msg('warn','Enter a document first.');return;}
+st.innerHTML=msg('info','<span class="spin">⟳</span> SHA-256 hashing + RSA signing…');
+await sleep(30);
+try {
+const docB=strToBytes(doc);
+const hashB=sha256(docB);
+const sigB=rsaSign(docB,key.priv);
+document.getElementById('out-hash').textContent=bytesToHex(hashB);
+document.getElementById('out-sig').textContent=bytesToHex(sigB).slice(0,80)+'…';
+renderHashVis(hashB,'hash-color-vis');
+S.lastBundle={document:doc,signature:bytesToHex(sigB),publicKey:key.pubPem,
+signer:key.name,timestamp:new Date().toISOString(),
+algorithm:'RSA-PKCS1v15-SHA256',keySize:2048};
+document.getElementById('sig-output').style.display='block';
+st.innerHTML=msg('ok',`✓ Signed by <strong>${key.name}</strong>`);
+} catch(e) {
+st.innerHTML=msg('err','✗ '+e.message);
+}
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  VERIFICATION
-// ═══════════════════════════════════════════════════════════════
-function detectBundleType() {
-  const raw = document.getElementById("verify-bundle").value.trim();
-  const hint = document.getElementById("bundle-type-hint"),
-    ps = document.getElementById("enc-pass-section");
-  if (!raw) {
-    hint.textContent = "";
-    ps.style.display = "none";
-    return;
-  }
-  try {
-    const b = JSON.parse(raw);
-    if (b.encrypted && b.encrypted.ciphertext) {
-      ps.style.display = "block";
-      hint.textContent = "✓ Encrypted bundle — enter password";
-      hint.style.color = "var(--teal)";
-    } else if (b.document && b.signature && b.publicKey) {
-      ps.style.display = "none";
-      hint.textContent = "✓ Plain signed bundle";
-      hint.style.color = "var(--green)";
-    } else {
-      ps.style.display = "none";
-      hint.textContent = "⚠ Unrecognised format";
-      hint.style.color = "var(--orange)";
-    }
-  } catch (e) {
-    ps.style.display = "none";
-    hint.textContent = "Not valid JSON yet…";
-    hint.style.color = "var(--text3)";
-  }
-}
-async function verifyBundle() {
-  const raw = document.getElementById("verify-bundle").value.trim();
-  let b;
-  try {
-    b = JSON.parse(raw);
-  } catch (e) {
-    showVerifyResult(false, "Invalid JSON", null);
-    return;
-  }
-  if (b.encrypted && b.encrypted.ciphertext) {
-    const pw = document.getElementById("auto-dec-pass").value.trim();
-    if (!pw) {
-      document.getElementById("enc-pass-section").style.display = "block";
-      document.getElementById("auto-dec-pass").focus();
-      showVerifyResult(false, "Enter password above then click Verify again", null);
-      return;
-    }
-    let inner;
-    try {
-      inner = JSON.parse(aesDecryptRaw(pw, b.encrypted));
-    } catch (e) {
-      showVerifyResult(false, "✗ Decryption failed — wrong password or tampered ciphertext", null);
-      return;
-    }
-    doVerify(inner.document, inner.signature, inner.publicKey, inner);
-    return;
-  }
-  if (b.document && b.signature && b.publicKey) {
-    doVerify(b.document, b.signature, b.publicKey, b);
-    return;
-  }
-  showVerifyResult(false, "Unrecognised bundle format", null);
-}
-function verifyManual() {
-  doVerify(
-    document.getElementById("v-doc").value,
-    document.getElementById("v-sig").value.trim(),
-    document.getElementById("v-pub").value.trim(),
-    null,
-  );
-}
-function doVerify(doc, sigHex, pubPem, meta) {
-  try {
-    const der = new Uint8Array(b642ab(pubPem.replace(/-----[^-]+-----/g, "").replace(/\s/g, "")));
-    const pub = parsePubDer(der);
-    const docB = strToBytes(doc);
-    const valid = rsaVerify(docB, hexToBytes(sigHex), pub);
-    const hash = bytesToHex(sha256(docB));
-    showVerifyResult(valid, null, { hashHex: hash, meta });
-  } catch (e) {
-    showVerifyResult(false, e.message, null);
-  }
-}
-function showVerifyResult(valid, err, data) {
-  const el = document.getElementById("verify-result");
-  el.style.display = "block";
-  let html = valid
-    ? `<div class="verify-big ok"><div class="verify-icon">✓</div><div><div class="verify-title">Signature VALID</div><div class="verify-subtitle">Document is authentic and untampered</div></div></div>`
-    : `<div class="verify-big err"><div class="verify-icon">✗</div><div><div class="verify-title">Signature INVALID</div><div class="verify-subtitle">${err || "Document tampered or wrong key used"}</div></div></div>`;
-  if (data) {
-    html += `<div class="card"><div class="info-table"><div class="info-row"><span class="info-key">SHA-256 hash</span><span class="info-val">${data.hashHex ? data.hashHex.slice(0, 40) + "…" : "—"}</span></div>`;
-    if (data.meta) {
-      html += `<div class="info-row"><span class="info-key">Signer</span><span class="info-val">${data.meta.signer || "—"}</span></div><div class="info-row"><span class="info-key">Timestamp</span><span class="info-val">${data.meta.timestamp || "—"}</span></div><div class="info-row"><span class="info-key">Algorithm</span><span class="info-val">${data.meta.algorithm || "—"}</span></div><div class="info-row"><span class="info-key">Key size</span><span class="info-val">${data.meta.keySize || 2048} bits</span></div>`;
-    }
-    html += `</div></div>`;
-  }
-  document.getElementById("verify-result-inner").innerHTML = html;
+// ═══════════════════════════════════════════════════
+// VERIFICATION
+// ═══════════════════════════════════════════════════
+function detectBundleType(){
+const raw=document.getElementById('verify-bundle').value.trim();
+const hint=document.getElementById('bundle-type-hint'),ps=document.getElementById('enc-pass-section');
+if(!raw){hint.textContent='';ps.style.display='none';return;}
+try{
+const b=JSON.parse(raw);
+if(b.encrypted&&b.encrypted.ciphertext){ps.style.display='block';hint.textContent='✓ Encrypted bundle — enter password';hint.style.color='var(--teal)';}
+else if(b.document&&b.signature&&b.publicKey){ps.style.display='none';hint.textContent='✓ Plain signed bundle';hint.style.color='var(--green)';}
+else{ps.style.display='none';hint.textContent='⚠ Unrecognised format';hint.style.color='var(--orange)';}
+}catch(e){ps.style.display='none';hint.textContent='Not valid JSON yet…';hint.style.color='var(--text3)';}
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  TAMPER TEST
-// ═══════════════════════════════════════════════════════════════
-function loadTamperDoc() {
-  if (!S.lastBundle) {
-    document.getElementById("tamper-status").innerHTML = msg("warn", "Sign a document first.");
-    return;
-  }
-  S.tamperBundle = JSON.parse(JSON.stringify(S.lastBundle));
-  document.getElementById("tamper-preview").innerHTML =
-    `<div class="mono-block">${esc(S.tamperBundle.document)}</div>`;
-  document.getElementById("tamper-btn").disabled = false;
-  document.getElementById("tamper-status").innerHTML = msg(
-    "info",
-    "Document loaded. Now tamper it.",
-  );
+async function verifyBundle(){
+const raw=document.getElementById('verify-bundle').value.trim();
+let b;
+try{b=JSON.parse(raw);}catch(e){showVerifyResult(false,'Invalid JSON',null);return;}
+if(b.encrypted&&b.encrypted.ciphertext){
+const pw=document.getElementById('auto-dec-pass').value.trim();
+if(!pw){document.getElementById('enc-pass-section').style.display='block';showVerifyResult(false,'Enter password above then click Verify again',null);return;}
+let inner;
+try{inner=JSON.parse(aesDecryptRaw(pw,b.encrypted));}
+catch(e){showVerifyResult(false,'✗ Decryption failed — wrong password or tampered ciphertext',null);return;}
+doVerify(inner.document,inner.signature,inner.publicKey,inner);return;
 }
-function tamperDoc() {
-  if (!S.tamperBundle) return;
-  S.tamperBundle.document = S.tamperBundle.document.replace(/\d+/, (m) =>
-    String(parseInt(m) + 99999),
-  );
-  if (!S.tamperBundle.document.includes("99999")) S.tamperBundle.document += " [TAMPERED]";
-  document.getElementById("tamper-preview").innerHTML =
-    `<div class="mono-block" style="border-color:var(--red)">${esc(S.tamperBundle.document)}</div>`;
-  document.getElementById("tamper-verify-btn").disabled = false;
-  document.getElementById("tamper-status").innerHTML = msg(
-    "warn",
-    "⚠ Document tampered. Verify to see it fail.",
-  );
-}
-function verifyTampered() {
-  if (!S.tamperBundle) return;
-  doVerify(S.tamperBundle.document, S.tamperBundle.signature, S.tamperBundle.publicKey, null);
-  nav("verify");
+if(b.document&&b.signature&&b.publicKey){doVerify(b.document,b.signature,b.publicKey,b);return;}
+showVerifyResult(false,'Unrecognised bundle format',null);
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  MULTI-SIGN
-// ═══════════════════════════════════════════════════════════════
-function addMultiSign() {
-  if (!S.keys.length) {
-    document.getElementById("multi-status").innerHTML = msg("warn", "Generate keys first.");
-    return;
-  }
-  const key = S.keys[S.multiSigs.length % S.keys.length];
-  const doc = document.getElementById("multi-doc").value;
-  const sig = rsaSign(strToBytes(doc), key.priv);
-  S.multiSigs.push({
-    signer: key.name,
-    sigHex: bytesToHex(sig),
-    pubPem: key.pubPem,
-    time: new Date().toLocaleTimeString(),
-  });
-  renderMultiList();
-  document.getElementById("multi-status").innerHTML = msg("ok", "✓ " + key.name + " signed.");
-}
-function verifyAllMulti() {
-  if (!S.multiSigs.length) {
-    document.getElementById("multi-status").innerHTML = msg("warn", "No signatures yet.");
-    return;
-  }
-  const doc = strToBytes(document.getElementById("multi-doc").value);
-  let all = true;
-  for (const s of S.multiSigs) {
-    const pub = parsePubDer(
-      new Uint8Array(b642ab(s.pubPem.replace(/-----[^-]+-----/g, "").replace(/\s/g, ""))),
-    );
-    if (!rsaVerify(doc, hexToBytes(s.sigHex), pub)) all = false;
-  }
-  document.getElementById("multi-status").innerHTML = all
-    ? msg("ok", `✓ All ${S.multiSigs.length} signatures valid.`)
-    : msg("err", "✗ One or more invalid.");
-}
-function renderMultiList() {
-  const el = document.getElementById("multi-signer-list");
-  if (!S.multiSigs.length) {
-    el.innerHTML = `<div style="font-size:13px;color:var(--text3);font-family:var(--mono)">No signatures yet.</div>`;
-    return;
-  }
-  el.innerHTML = S.multiSigs
-    .map(
-      (s) =>
-        `<div class="signer-row"><div class="signer-left"><div class="avatar">${s.signer.slice(0, 2).toUpperCase()}</div><div><div class="signer-name">${s.signer}</div><div class="signer-time">Signed at ${s.time}</div></div></div><span class="badge badge-ok">✓ Signed</span></div>`,
-    )
-    .join("");
-}
-function resetMulti() {
-  S.multiSigs = [];
-  renderMultiList();
-  document.getElementById("multi-status").innerHTML = "";
+function verifyManual(){
+doVerify(document.getElementById('v-doc').value,
+document.getElementById('v-sig').value.trim(),
+document.getElementById('v-pub').value.trim(),null);
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  AES PAGE
-// ═══════════════════════════════════════════════════════════════
-async function aesEncrypt() {
-  const pw = document.getElementById("aes-enc-pass").value.trim(),
-    pt = document.getElementById("aes-plaintext").value;
-  const st = document.getElementById("aes-enc-status");
-  if (!pw) {
-    st.innerHTML = msg("warn", "Enter a password.");
-    return;
-  }
-  if (!pt) {
-    st.innerHTML = msg("warn", "Enter a message.");
-    return;
-  }
-  st.innerHTML = msg(
-    "info",
-    '<span class="spin">⟳</span> PBKDF2 (100k rounds) + AES-256-GCM… (15–40s)',
-  );
-  await sleep(40);
-  try {
-    const bundle = await new Promise((res, rej) => {
-      setTimeout(() => {
-        try {
-          res(aesEncryptRaw(pw, pt));
-        } catch (e) {
-          rej(e);
-        }
-      }, 10);
-    });
-    S.aesBundle = bundle;
-    document.getElementById("aes-out-salt").textContent = bundle.salt;
-    document.getElementById("aes-out-iv").textContent = bundle.iv;
-    document.getElementById("aes-out-cipher").textContent = bundle.ciphertext;
-    document.getElementById("aes-out-tag").textContent = bundle.tag;
-    document.getElementById("aes-cipher-size").textContent =
-      bundle.ciphertext.length / 2 + " bytes";
-    document.getElementById("aes-bundle-out").textContent = JSON.stringify(bundle, null, 2);
-    document.getElementById("aes-enc-output").style.display = "block";
-    st.innerHTML = msg("ok", `✓ Pure JS AES-256-GCM — ${bundle.ciphertext.length / 2} bytes`);
-  } catch (e) {
-    st.innerHTML = msg("err", "✗ " + e.message);
-  }
+function doVerify(doc,sigHex,pubPem,meta){
+try{
+const der=new Uint8Array(b642ab(pubPem.replace(/-----[^-]+-----/g,'').replace(/\s/g,'')));
+const pub=parsePubDer(der);
+const docB=strToBytes(doc);
+const valid=rsaVerify(docB,hexToBytes(sigHex),pub);
+const hash=bytesToHex(sha256(docB));
+showVerifyResult(valid,null,{hashHex:hash,meta});
+}catch(e){
+showVerifyResult(false,e.message,null);
 }
-async function aesDecrypt() {
-  const pw = document.getElementById("aes-dec-pass").value.trim(),
-    raw = document.getElementById("aes-dec-bundle").value.trim();
-  const st = document.getElementById("aes-dec-status");
-  if (!pw) {
-    st.innerHTML = msg("warn", "Enter the password.");
-    return;
-  }
-  if (!raw) {
-    st.innerHTML = msg("warn", "Paste the bundle.");
-    return;
-  }
-  let bundle;
-  try {
-    bundle = JSON.parse(raw);
-  } catch (e) {
-    st.innerHTML = msg("err", "Invalid JSON.");
-    return;
-  }
-  if (!bundle.salt || !bundle.iv || !bundle.ciphertext || !bundle.tag) {
-    st.innerHTML = msg("err", "Bundle missing: salt,iv,ciphertext,tag.");
-    return;
-  }
-  st.innerHTML = msg(
-    "info",
-    '<span class="spin">⟳</span> PBKDF2 + AES-256-GCM decrypting… (15–40s)',
-  );
-  await sleep(40);
-  try {
-    const pt = await new Promise((res, rej) => {
-      setTimeout(() => {
-        try {
-          res(aesDecryptRaw(pw, bundle));
-        } catch (e) {
-          rej(e);
-        }
-      }, 10);
-    });
-    document.getElementById("aes-plaintext-out").textContent = pt;
-    document.getElementById("aes-dec-output").style.display = "block";
-    st.innerHTML = msg("ok", "✓ Decrypted successfully");
-  } catch (e) {
-    document.getElementById("aes-dec-output").style.display = "none";
-    st.innerHTML = msg("err", "✗ " + e.message);
-  }
-}
-function copyAesBundle() {
-  if (S.aesBundle) navigator.clipboard.writeText(JSON.stringify(S.aesBundle, null, 2));
-}
-function downloadAesBundle() {
-  if (S.aesBundle) download(JSON.stringify(S.aesBundle, null, 2), "aes-" + Date.now() + ".json");
-}
-function autoFillDecrypt() {
-  if (S.aesBundle) {
-    document.getElementById("aes-dec-bundle").value = JSON.stringify(S.aesBundle, null, 2);
-    switchTab("aes-dec", "aes-tabs", "aes-enc-btn,aes-dec-btn");
-  }
 }
 
-async function encryptSignedBundle() {
-  const st = document.getElementById("sign-aes-status");
-  if (!S.lastBundle) {
-    st.innerHTML = msg("warn", "Sign a document first.");
-    return;
-  }
-  const pw = document.getElementById("sign-aes-pass").value.trim();
-  if (!pw) {
-    st.innerHTML = msg("warn", "Enter a password.");
-    return;
-  }
-  st.innerHTML = msg("info", '<span class="spin">⟳</span> PBKDF2 + AES-256-GCM… (15–40s)');
-  await sleep(40);
-  try {
-    const inner = await new Promise((res, rej) => {
-      setTimeout(() => {
-        try {
-          res(aesEncryptRaw(pw, JSON.stringify(S.lastBundle)));
-        } catch (e) {
-          rej(e);
-        }
-      }, 10);
-    });
-    const outer = {
-      encrypted: inner,
-      algorithm: "RSA-SHA256 + AES-256-GCM",
-      note: "Decrypt with password, then verify RSA signature inside",
-    };
-    S.encBundle = outer;
-    document.getElementById("sign-aes-bundle").textContent = JSON.stringify(outer, null, 2);
-    document.getElementById("sign-aes-output").style.display = "block";
-    st.innerHTML = msg("ok", `✓ Encrypted — ${inner.ciphertext.length / 2} bytes`);
-  } catch (e) {
-    st.innerHTML = msg("err", "✗ " + e.message);
-  }
+function showVerifyResult(valid,err,data){
+const el=document.getElementById('verify-result');
+el.style.display='block';
+let html=valid
+?`<div class="verify-big ok"><div class="verify-icon">✓</div><div><div class="verify-title">Signature VALID</div><div class="verify-subtitle">Document is authentic and untampered</div></div></div>`
+:`<div class="verify-big err"><div class="verify-icon">✗</div><div><div class="verify-title">Signature INVALID</div><div class="verify-subtitle">${err||'Document tampered or wrong key used'}</div></div></div>`;
+if(data){
+html+=`<div class="card"><div class="info-table"><div class="info-row"><span class="info-key">SHA-256 hash</span><span class="info-val">${data.hashHex?data.hashHex.slice(0,40)+'…':'—'}</span></div>`;
+if(data.meta)
+html+=`<div class="info-row"><span class="info-key">Signer</span><span class="info-val">${data.meta.signer||'—'}</span></div><div class="info-row"><span class="info-key">Timestamp</span><span class="info-val">${data.meta.timestamp||'—'}</span></div><div class="info-row"><span class="info-key">Algorithm</span><span class="info-val">${data.meta.algorithm||'—'}</span></div><div class="info-row"><span class="info-key">Key size</span><span class="info-val">${data.meta.keySize||2048} bits</span></div>`;
+html+=`</div></div>`;
 }
-function copyEncBundle() {
-  if (S.encBundle) navigator.clipboard.writeText(JSON.stringify(S.encBundle, null, 2));
-}
-function downloadEncBundle() {
-  if (S.encBundle)
-    download(JSON.stringify(S.encBundle, null, 2), "enc-signed-" + Date.now() + ".json");
+document.getElementById('verify-result-inner').innerHTML=html;
 }
 
-async function decryptAndVerify() {
-  const st = document.getElementById("v-enc-status");
-  const pw = document.getElementById("v-enc-pass").value.trim(),
-    raw = document.getElementById("v-enc-bundle").value.trim();
-  if (!pw) {
-    st.innerHTML = msg("warn", "Enter the password.");
-    return;
-  }
-  if (!raw) {
-    st.innerHTML = msg("warn", "Paste the bundle.");
-    return;
-  }
-  let outer;
-  try {
-    outer = JSON.parse(raw);
-  } catch (e) {
-    st.innerHTML = msg("err", "Invalid JSON.");
-    return;
-  }
-  const inner = outer.encrypted || outer;
-  if (!inner.salt || !inner.iv || !inner.ciphertext || !inner.tag) {
-    st.innerHTML = msg("err", "Bundle missing fields.");
-    return;
-  }
-  st.innerHTML = msg("info", '<span class="spin">⟳</span> PBKDF2 + AES decrypting… (15–40s)');
-  await sleep(40);
-  let sb;
-  try {
-    const pt = await new Promise((res, rej) => {
-      setTimeout(() => {
-        try {
-          res(aesDecryptRaw(pw, inner));
-        } catch (e) {
-          rej(e);
-        }
-      }, 10);
-    });
-    sb = JSON.parse(pt);
-  } catch (e) {
-    st.innerHTML = msg("err", "✗ Decryption failed.");
-    return;
-  }
-  st.innerHTML = msg("info", '<span class="spin">⟳</span> Verifying RSA signature…');
-  await sleep(20);
-  doVerify(sb.document, sb.signature, sb.publicKey, sb);
-  st.innerHTML = msg("ok", "✓ Decrypted. RSA verification shown above.");
+// ═══════════════════════════════════════════════════
+// TAMPER TEST
+// ═══════════════════════════════════════════════════
+function loadTamperDoc(){
+if(!S.lastBundle){document.getElementById('tamper-status').innerHTML=msg('warn','Sign a document first.');return;}
+S.tamperBundle=JSON.parse(JSON.stringify(S.lastBundle));
+document.getElementById('tamper-preview').innerHTML=`<div class="mono-block">${esc(S.tamperBundle.document)}</div>`;
+document.getElementById('tamper-btn').disabled=false;
+document.getElementById('tamper-status').innerHTML=msg('info','Document loaded. Now tamper it.');
+}
+function tamperDoc(){
+if(!S.tamperBundle)return;
+S.tamperBundle.document=S.tamperBundle.document.replace(/\d+/,m=>String(parseInt(m)+99999));
+if(!S.tamperBundle.document.includes('99999'))S.tamperBundle.document+=' [TAMPERED]';
+document.getElementById('tamper-preview').innerHTML=`<div class="mono-block" style="border-color:var(--red)">${esc(S.tamperBundle.document)}</div>`;
+document.getElementById('tamper-verify-btn').disabled=false;
+document.getElementById('tamper-status').innerHTML=msg('warn','⚠ Document tampered. Verify to see it fail.');
+}
+function verifyTampered(){
+if(!S.tamperBundle)return;
+doVerify(S.tamperBundle.document,S.tamperBundle.signature,S.tamperBundle.publicKey,null);
+nav('verify');
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  LIVE DEMOS (learn page)
-// ═══════════════════════════════════════════════════════════════
-function updateLiveHash() {
-  const txt = document.getElementById("live-input").value;
-  if (!txt) {
-    document.getElementById("live-hash-out").textContent = "—";
-    document.getElementById("live-hash-vis").innerHTML = "";
-    return;
-  }
-  const h = sha256(strToBytes(txt));
-  document.getElementById("live-hash-out").textContent = bytesToHex(h);
-  renderHashVis(h, "live-hash-vis");
+// ═══════════════════════════════════════════════════
+// MULTI-SIGN
+// ═══════════════════════════════════════════════════
+function addMultiSign(){
+if(!S.keys.length){document.getElementById('multi-status').innerHTML=msg('warn','Generate keys first.');return;}
+const key=S.keys[S.multiSigs.length%S.keys.length];
+const doc=document.getElementById('multi-doc').value;
+const sig=rsaSign(strToBytes(doc),key.priv);
+S.multiSigs.push({signer:key.name,sigHex:bytesToHex(sig),pubPem:key.pubPem,time:new Date().toLocaleTimeString()});
+renderMultiList();
+document.getElementById('multi-status').innerHTML=msg('ok','✓ '+key.name+' signed.');
 }
-function updateAvalanche() {
-  const a = document.getElementById("av-a").value,
-    b = document.getElementById("av-b").value;
-  if (!a || !b) return;
-  const ha = sha256(strToBytes(a)),
-    hb = sha256(strToBytes(b));
-  document.getElementById("av-hash-a").textContent = bytesToHex(ha);
-  document.getElementById("av-hash-b").textContent = bytesToHex(hb);
-  let diffBits = 0;
-  const dv = new Uint8Array(32);
-  for (let i = 0; i < 32; i++) {
-    dv[i] = ha[i] ^ hb[i];
-    let x = ha[i] ^ hb[i];
-    while (x) {
-      diffBits += x & 1;
-      x >>= 1;
-    }
-  }
-  document.getElementById("av-diff").textContent =
-    `${diffBits}/256 bits differ (${((diffBits / 256) * 100).toFixed(1)}%) — ideal avalanche ≈ 50%`;
-  const el = document.getElementById("av-vis-diff");
-  el.innerHTML = "";
-  for (let i = 0; i < 32; i++) {
-    const d = document.createElement("div");
-    d.className = "hash-byte";
-    d.style.background = ha[i] === hb[i] ? "var(--green)" : "var(--red)";
-    el.appendChild(d);
-  }
+function verifyAllMulti(){
+if(!S.multiSigs.length){document.getElementById('multi-status').innerHTML=msg('warn','No signatures yet.');return;}
+const doc=strToBytes(document.getElementById('multi-doc').value);
+let all=true;
+for(const s of S.multiSigs){
+const pub=parsePubDer(new Uint8Array(b642ab(s.pubPem.replace(/-----[^-]+-----/g,'').replace(/\s/g,''))));
+if(!rsaVerify(doc,hexToBytes(s.sigHex),pub))all=false;
 }
-async function updateAesDemo(run = false) {
-  if (!run) return;
-  const plain = document.getElementById("aes-demo-plain").value,
-    pass = document.getElementById("aes-demo-pass").value;
-  const el = document.getElementById("aes-demo-out");
-  if (!plain || !pass) {
-    el.textContent = "Enter plaintext and password.";
-    return;
-  }
-  el.textContent = "Running PBKDF2 + AES-256-GCM… (15–40s)";
-  await sleep(20);
-  try {
-    const r = await new Promise((res, rej) => {
-      setTimeout(() => {
-        try {
-          res(aesEncryptRaw(pass, plain));
-        } catch (e) {
-          rej(e);
-        }
-      }, 10);
-    });
-    el.textContent = `PBKDF2 salt:  ${r.salt}\nAES-GCM IV:   ${r.iv}\nCiphertext:   ${r.ciphertext}\nAuth tag:     ${r.tag}\n\nPlaintext:  ${plain.length} bytes\nCiphertext: ${r.ciphertext.length / 2} bytes\nKDF:        PBKDF2-SHA256 × 100,000`;
-  } catch (e) {
-    el.textContent = "Error: " + e.message;
-  }
+document.getElementById('multi-status').innerHTML=all
+?msg('ok',`✓ All ${S.multiSigs.length} signatures valid.`)
+:msg('err','✗ One or more invalid.');
 }
-function calcRSA() {
-  const p = BigInt(document.getElementById("rsa-p").value || 61),
-    q = BigInt(document.getElementById("rsa-q").value || 53);
-  const e = BigInt(document.getElementById("rsa-e").value || 17),
-    M = BigInt(document.getElementById("rsa-m").value || 65);
-  const el = document.getElementById("rsa-calc-out");
-  try {
-    if (!isPrime(p)) {
-      el.textContent = "p is not prime";
-      return;
-    }
-    if (!isPrime(q)) {
-      el.textContent = "q is not prime";
-      return;
-    }
-    const n = p * q,
-      phi = (p - 1n) * (q - 1n);
-    if (extGcd(e, phi).g !== 1n) {
-      el.textContent = `gcd(e=${e},φ(n)=${phi})≠1 — e not coprime with φ(n)`;
-      return;
-    }
-    if (M >= n) {
-      el.textContent = `M must be < n (${n})`;
-      return;
-    }
-    const d = modInv(e, phi),
-      C = modpow(M, d, n),
-      R = modpow(C, e, n);
-    el.textContent = `n = ${p}×${q} = ${n}\nφ(n) = ${p - 1n}×${q - 1n} = ${phi}\nPublic key:  (n=${n}, e=${e})\nPrivate key: d = ${d}\nVerify:      d×e mod φ(n) = ${(d * e) % phi} ✓\n\nSIGN:   C = M^d mod n = ${M}^${d} mod ${n} = ${C}\nVERIFY: R = C^e mod n = ${C}^${e} mod ${n} = ${R}\nResult: R ${R === M ? "=== M ✓ VALID" : "!== M ✗ INVALID"}`;
-  } catch (e) {
-    el.textContent = "Error: " + e.message;
-  }
+function renderMultiList(){
+const el=document.getElementById('multi-signer-list');
+if(!S.multiSigs.length){el.innerHTML=`<div style="font-size:13px;color:var(--text3);font-family:var(--mono)">No signatures yet.</div>`;return;}
+el.innerHTML=S.multiSigs.map(s=>
+`<div class="signer-row"><div class="signer-left"><div class="avatar">${s.signer.slice(0,2).toUpperCase()}</div><div><div class="signer-name">${s.signer}</div><div class="signer-time">Signed at ${s.time}</div></div></div><span class="badge badge-ok">✓ Signed</span></div>`
+).join('');
+}
+function resetMulti(){S.multiSigs=[];renderMultiList();document.getElementById('multi-status').innerHTML='';}
+
+// ═══════════════════════════════════════════════════
+// AES PAGE
+// ═══════════════════════════════════════════════════
+async function aesEncrypt(){
+const pw=document.getElementById('aes-enc-pass').value.trim(),pt=document.getElementById('aes-plaintext').value;
+const st=document.getElementById('aes-enc-status');
+if(!pw){st.innerHTML=msg('warn','Enter a password.');return;}
+if(!pt){st.innerHTML=msg('warn','Enter a message.');return;}
+st.innerHTML=msg('info','<span class="spin">⟳</span> PBKDF2 (100k rounds) + AES-256-GCM… (15–40s)');
+await sleep(40);
+try{
+const bundle=await new Promise((res,rej)=>{setTimeout(()=>{try{res(aesEncryptRaw(pw,pt));}catch(e){rej(e);}},10);});
+S.aesBundle=bundle;
+document.getElementById('aes-out-salt').textContent=bundle.salt;
+document.getElementById('aes-out-iv').textContent=bundle.iv;
+document.getElementById('aes-out-cipher').textContent=bundle.ciphertext;
+document.getElementById('aes-out-tag').textContent=bundle.tag;
+document.getElementById('aes-cipher-size').textContent=bundle.ciphertext.length/2+' bytes';
+document.getElementById('aes-bundle-out').textContent=JSON.stringify(bundle,null,2);
+document.getElementById('aes-enc-output').style.display='block';
+st.innerHTML=msg('ok',`✓ AES-256-GCM — ${bundle.ciphertext.length/2} bytes`);
+}catch(e){st.innerHTML=msg('err','✗ '+e.message);}
+}
+async function aesDecrypt(){
+const pw=document.getElementById('aes-dec-pass').value.trim(),raw=document.getElementById('aes-dec-bundle').value.trim();
+const st=document.getElementById('aes-dec-status');
+if(!pw){st.innerHTML=msg('warn','Enter the password.');return;}
+if(!raw){st.innerHTML=msg('warn','Paste the bundle.');return;}
+let bundle;
+try{bundle=JSON.parse(raw);}catch(e){st.innerHTML=msg('err','Invalid JSON.');return;}
+if(!bundle.salt||!bundle.iv||!bundle.ciphertext||!bundle.tag){st.innerHTML=msg('err','Bundle missing: salt,iv,ciphertext,tag.');return;}
+st.innerHTML=msg('info','<span class="spin">⟳</span> PBKDF2 + AES-256-GCM decrypting… (15–40s)');
+await sleep(40);
+try{
+const pt=await new Promise((res,rej)=>{setTimeout(()=>{try{res(aesDecryptRaw(pw,bundle));}catch(e){rej(e);}},10);});
+document.getElementById('aes-plaintext-out').textContent=pt;
+document.getElementById('aes-dec-output').style.display='block';
+st.innerHTML=msg('ok','✓ Decrypted successfully');
+}catch(e){document.getElementById('aes-dec-output').style.display='none';st.innerHTML=msg('err','✗ '+e.message);}
+}
+function copyAesBundle(){if(S.aesBundle)navigator.clipboard.writeText(JSON.stringify(S.aesBundle,null,2));}
+function downloadAesBundle(){if(S.aesBundle)download(JSON.stringify(S.aesBundle,null,2),'aes-'+Date.now()+'.json');}
+function autoFillDecrypt(){
+if(S.aesBundle){document.getElementById('aes-dec-bundle').value=JSON.stringify(S.aesBundle,null,2);switchTab('aes-dec','aes-tabs','aes-enc-btn,aes-dec-btn');}
+}
+async function encryptSignedBundle(){
+const st=document.getElementById('sign-aes-status');
+if(!S.lastBundle){st.innerHTML=msg('warn','Sign a document first.');return;}
+const pw=document.getElementById('sign-aes-pass').value.trim();
+if(!pw){st.innerHTML=msg('warn','Enter a password.');return;}
+st.innerHTML=msg('info','<span class="spin">⟳</span> PBKDF2 + AES-256-GCM… (15–40s)');
+await sleep(40);
+try{
+const inner=await new Promise((res,rej)=>{setTimeout(()=>{try{res(aesEncryptRaw(pw,JSON.stringify(S.lastBundle)));}catch(e){rej(e);}},10);});
+const outer={encrypted:inner,algorithm:'RSA-SHA256 + AES-256-GCM'};
+S.encBundle=outer;
+document.getElementById('sign-aes-bundle').textContent=JSON.stringify(outer,null,2);
+document.getElementById('sign-aes-output').style.display='block';
+st.innerHTML=msg('ok',`✓ Encrypted — ${inner.ciphertext.length/2} bytes`);
+}catch(e){st.innerHTML=msg('err','✗ '+e.message);}
+}
+function copyEncBundle(){if(S.encBundle)navigator.clipboard.writeText(JSON.stringify(S.encBundle,null,2));}
+function downloadEncBundle(){if(S.encBundle)download(JSON.stringify(S.encBundle,null,2),'enc-signed-'+Date.now()+'.json');}
+async function decryptAndVerify(){
+const st=document.getElementById('v-enc-status');
+const pw=document.getElementById('v-enc-pass').value.trim(),raw=document.getElementById('v-enc-bundle').value.trim();
+if(!pw){st.innerHTML=msg('warn','Enter the password.');return;}
+if(!raw){st.innerHTML=msg('warn','Paste the bundle.');return;}
+let outer;
+try{outer=JSON.parse(raw);}catch(e){st.innerHTML=msg('err','Invalid JSON.');return;}
+const inner=outer.encrypted||outer;
+if(!inner.salt||!inner.iv||!inner.ciphertext||!inner.tag){st.innerHTML=msg('err','Bundle missing fields.');return;}
+st.innerHTML=msg('info','<span class="spin">⟳</span> PBKDF2 + AES decrypting… (15–40s)');
+await sleep(40);
+let sb;
+try{
+const pt=await new Promise((res,rej)=>{setTimeout(()=>{try{res(aesDecryptRaw(pw,inner));}catch(e){rej(e);}},10);});
+sb=JSON.parse(pt);
+}catch(e){st.innerHTML=msg('err','✗ Decryption failed.');return;}
+doVerify(sb.document,sb.signature,sb.publicKey,sb);
+st.innerHTML=msg('ok','✓ Decrypted. RSA verification shown above.');
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  UTILITIES
-// ═══════════════════════════════════════════════════════════════
-function renderHashVis(bytes, id) {
-  const el = document.getElementById(id);
-  el.innerHTML = "";
-  (bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)).forEach((b) => {
-    const d = document.createElement("div");
-    d.className = "hash-byte";
-    d.style.background = `hsl(${Math.round((b / 255) * 360)},60%,50%)`;
-    el.appendChild(d);
-  });
+// ═══════════════════════════════════════════════════
+// LIVE DEMOS
+// ═══════════════════════════════════════════════════
+function updateLiveHash(){
+const txt=document.getElementById('live-input').value;
+if(!txt){document.getElementById('live-hash-out').textContent='—';document.getElementById('live-hash-vis').innerHTML='';return;}
+const h=sha256(strToBytes(txt));
+document.getElementById('live-hash-out').textContent=bytesToHex(h);
+renderHashVis(h,'live-hash-vis');
 }
-function exportBundle() {
-  if (S.lastBundle)
-    download(JSON.stringify(S.lastBundle, null, 2), "signed-" + Date.now() + ".json");
+function updateAvalanche(){
+const a=document.getElementById('av-a').value,b=document.getElementById('av-b').value;
+if(!a||!b)return;
+const ha=sha256(strToBytes(a)),hb=sha256(strToBytes(b));
+document.getElementById('av-hash-a').textContent=bytesToHex(ha);
+document.getElementById('av-hash-b').textContent=bytesToHex(hb);
+let diffBits=0;
+for(let i=0;i<32;i++){let x=ha[i]^hb[i];while(x){diffBits+=x&1;x>>=1;}}
+document.getElementById('av-diff').textContent=`${diffBits}/256 bits differ (${((diffBits/256)*100).toFixed(1)}%) — ideal ≈ 50%`;
+const el=document.getElementById('av-vis-diff');el.innerHTML='';
+for(let i=0;i<32;i++){const d=document.createElement('div');d.className='hash-byte';d.style.background=ha[i]===hb[i]?'var(--green)':'var(--red)';el.appendChild(d);}
 }
-function copyBundle() {
-  if (S.lastBundle) navigator.clipboard.writeText(JSON.stringify(S.lastBundle, null, 2));
+async function updateAesDemo(run=false){
+if(!run)return;
+const plain=document.getElementById('aes-demo-plain').value,pass=document.getElementById('aes-demo-pass').value;
+const el=document.getElementById('aes-demo-out');
+if(!plain||!pass){el.textContent='Enter plaintext and password.';return;}
+el.textContent='Running PBKDF2 + AES-256-GCM… (15–40s)';
+await sleep(20);
+try{
+const r=await new Promise((res,rej)=>{setTimeout(()=>{try{res(aesEncryptRaw(pass,plain));}catch(e){rej(e);}},10);});
+el.textContent=`PBKDF2 salt: ${r.salt}\nAES-GCM IV: ${r.iv}\nCiphertext: ${r.ciphertext}\nAuth tag: ${r.tag}\n\nPlaintext: ${plain.length} bytes\nCiphertext: ${r.ciphertext.length/2} bytes\nKDF: PBKDF2-SHA256 × 100,000`;
+}catch(e){el.textContent='Error: '+e.message;}
 }
-function copyText(id) {
-  navigator.clipboard.writeText(document.getElementById(id).textContent);
+function calcRSA(){
+const p=BigInt(document.getElementById('rsa-p').value||61),q=BigInt(document.getElementById('rsa-q').value||53);
+const e=BigInt(document.getElementById('rsa-e').value||17),M=BigInt(document.getElementById('rsa-m').value||65);
+const el=document.getElementById('rsa-calc-out');
+try{
+if(!isPrime(p)){el.textContent='p is not prime';return;}
+if(!isPrime(q)){el.textContent='q is not prime';return;}
+const n=p*q,phi=(p-1n)*(q-1n);
+if(extGcd(e,phi).g!==1n){el.textContent=`gcd(e=${e},φ(n)=${phi})≠1 — e not coprime with φ(n)`;return;}
+if(M>=n){el.textContent=`M must be < n (${n})`;return;}
+const d=modInv(e,phi),C=modpow(M,d,n),R=modpow(C,e,n);
+el.textContent=`n = ${p}×${q} = ${n}\nφ(n) = ${p-1n}×${q-1n} = ${phi}\nPublic key: (n=${n}, e=${e})\nPrivate key: d = ${d}\nVerify: d×e mod φ(n) = ${(d*e)%phi} ✓\n\nSIGN: C = M^d mod n = ${M}^${d} mod ${n} = ${C}\nVERIFY: R = C^e mod n = ${C}^${e} mod ${n} = ${R}\nResult: R ${R===M?'=== M ✓ VALID':'!== M ✗ INVALID'}`;
+}catch(e){el.textContent='Error: '+e.message;}
 }
-function download(text, name) {
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([text], { type: "application/json" }));
-  a.download = name;
-  a.click();
+
+// ═══════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════
+function renderHashVis(bytes,id){
+const el=document.getElementById(id);el.innerHTML='';
+(bytes instanceof Uint8Array?bytes:new Uint8Array(bytes)).forEach(b=>{
+const d=document.createElement('div');d.className='hash-byte';
+d.style.background=`hsl(${Math.round((b/255)*360)},60%,50%)`;
+el.appendChild(d);
+});
 }
-function loadFile() {
-  const f = document.getElementById("file-input").files[0];
-  if (!f) return;
-  const r = new FileReader();
-  r.onload = (e) => {
-    S.fileContent = e.target.result;
-    document.getElementById("file-info").textContent = `✓ ${f.name} (${f.size} bytes)`;
-  };
-  r.readAsText(f);
+function exportBundle(){if(S.lastBundle)download(JSON.stringify(S.lastBundle,null,2),'signed-'+Date.now()+'.json');}
+function copyBundle(){if(S.lastBundle)navigator.clipboard.writeText(JSON.stringify(S.lastBundle,null,2));}
+function copyText(id){navigator.clipboard.writeText(document.getElementById(id).textContent);}
+function download(text,name){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'application/json'}));a.download=name;a.click();}
+function loadFile(){
+const f=document.getElementById('file-input').files[0];if(!f)return;
+const r=new FileReader();
+r.onload=e=>{S.fileContent=e.target.result;document.getElementById('file-info').textContent=`✓ ${f.name} (${f.size} bytes)`;};
+r.readAsText(f);
 }
-function msg(type, html) {
-  return `<div class="status status-${type}">${html}</div>`;
+function msg(type,html){return `<div class="status status-${type}">${html}</div>`;}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+function nav(page){
+document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+document.getElementById('page-'+page).classList.add('active');
+document.getElementById('nav-'+page).classList.add('active');
+if(page==='learn'){updateLiveHash();updateAvalanche();calcRSA();}
 }
-function esc(s) {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-function nav(page) {
-  document.querySelectorAll(".page").forEach((p) => p.classList.remove("active"));
-  document.querySelectorAll(".nav-item").forEach((n) => n.classList.remove("active"));
-  document.getElementById("page-" + page).classList.add("active");
-  document.getElementById("nav-" + page).classList.add("active");
-  if (page === "learn") {
-    updateLiveHash();
-    updateAvalanche();
-    calcRSA();
-  }
-}
-function switchTab(showId, containerId, btnIds) {
-  document
-    .getElementById(containerId)
-    .querySelectorAll(":scope > div")
-    .forEach((d) => (d.style.display = "none"));
-  document.getElementById(showId).style.display = "block";
-  btnIds.split(",").forEach((id) => {
-    const el = document.getElementById(id.trim());
-    if (el) el.classList.toggle("active", id.trim() === showId + "-btn");
-  });
+function switchTab(showId,containerId,btnIds){
+document.getElementById(containerId).querySelectorAll(':scope > div').forEach(d=>d.style.display='none');
+document.getElementById(showId).style.display='block';
+btnIds.split(',').forEach(id=>{
+const el=document.getElementById(id.trim());
+if(el)el.classList.toggle('active',id.trim()===showId+'-btn');
+});
 }
 
 // INIT
-renderMultiList();
-updateLiveHash();
-updateAvalanche();
-calcRSA();
+renderMultiList(); updateLiveHash(); updateAvalanche(); calcRSA();
 </script>
 </body>
 </html>
